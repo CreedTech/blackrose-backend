@@ -373,8 +373,10 @@ const getCollections = async (req, res) => {
     }
 
     const collections = await Collection.find({ owner: req.user._id })
-      .select('name imageCount updatedAt')
-      .sort({ updatedAt: -1 });
+      .populate('images', '_id watermarkedUrl title')
+      // .select('name imageCount updatedAt')
+      .sort({ updatedAt: -1 })
+      ;
 
     if (!collections.length) {
       return res.status(404).json({ message: 'No collections found' });
