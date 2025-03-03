@@ -10,6 +10,9 @@ import orderRouter from './routes/orderRoute.js';
 import categoryRouter from './routes/categoryRoute.js';
 import galleryRouter from './routes/imageRoute.js';
 import collectionRouter from './routes/collectionRoutes.js';
+import adminRouter from './routes/adminRoute.js';
+import authUser from './middleware/auth.js';
+import { trackUserActivity } from './middleware/activityTracking.js';
 
 // App Config
 const app = express();
@@ -21,6 +24,10 @@ connectCloudinary();
 app.use(express.json());
 app.use(express.static('assets'));
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
+
+// Global activity tracking for authenticated routes
+app.use('/api', authUser, trackUserActivity);
 
 // api endpoints
 app.use('/api/v1/user', userRouter);
@@ -30,6 +37,7 @@ app.use('/api/v1/order', orderRouter);
 app.use('/api/v1/category', categoryRouter);
 app.use('/api/v1/gallery', galleryRouter);
 app.use('/api/v1/collections', collectionRouter);
+app.use('/api/v1/admin', adminRouter);
 
 app.get('/', (req, res) => {
   res.send('API Working');

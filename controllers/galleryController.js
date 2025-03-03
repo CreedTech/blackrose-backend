@@ -182,13 +182,6 @@ const postImage = async (req, res) => {
     const { originalUrl, watermarkedUrl, publicId } =
       await processAndUploadImage(req.file);
 
-    // Upload to Cloudinary
-    // const imageResult = await cloudinary.uploader.upload(originalUrl, {
-    //   folder: 'gallery',
-    //   resource_type: 'image',
-    //   allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
-    // });
-
     // Create tags array from string
     const tags = req.body.tags
       ? req.body.tags.split(',').map((tag) => tag.trim())
@@ -213,18 +206,8 @@ const postImage = async (req, res) => {
     });
     res.status(201).json(image);
   } catch (error) {
-    // // Delete uploaded image if save fails
-    // if (req.file && imageResult?.publicId) {
-    //   await deleteFromCloudinary(imageResult.publicId);
-    // }
     res.status(400).json({ message: error.message });
   }
-  //   finally {
-  //     // Clean up uploaded file
-  //     if (req.file) {
-  //       fs.unlinkSync(req.file.path);
-  //     }
-  //   }
 };
 
 // Download original image (requires authentication)
@@ -375,9 +358,7 @@ const getCollections = async (req, res) => {
     const collections = await Collection.find({ owner: req.user._id })
       .populate('images', '_id watermarkedUrl title')
       // .select('name imageCount updatedAt')
-      .sort({ updatedAt: -1 })
-      ;
-
+      .sort({ updatedAt: -1 });
     if (!collections.length) {
       return res.status(404).json({ message: 'No collections found' });
     }

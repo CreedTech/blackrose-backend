@@ -6,7 +6,7 @@ const authUser = async (req, res, next) => {
   const token = req.headers['authorization']
     ? req.headers['authorization'].split(' ')[1]
     : null;
-
+  
 
   if (!token) {
     return res
