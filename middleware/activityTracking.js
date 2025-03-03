@@ -91,7 +91,7 @@ const getActivityType = (req) => {
   const method = req.method;
 
   // Image related activities
-  if (path.includes('/images')) {
+  if (path.includes('/gallery')) {
     if (method === 'GET') return 'view';
     if (method === 'POST') return 'upload';
     if (method === 'PUT') return 'edit';

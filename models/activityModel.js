@@ -8,7 +8,24 @@ const activitySchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['view', 'download', 'upload', 'like', 'comment'],
+    enum: [
+      'view',
+      'download',
+      'upload',
+      'edit',
+      'delete',
+      'like',
+      'comment',
+      'share',
+      'search',
+      'profile_update',
+      'settings_update',
+      'collection_create',
+      'collection_update',
+      'collection_add',
+      'collection_remove',
+      'other', // Added 'other' to enum
+    ],
     required: true,
   },
   imageId: {
