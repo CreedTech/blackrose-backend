@@ -2,9 +2,22 @@ import validator from 'validator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import userModel from '../models/userModel.js';
+import LoginActivity from '../models/loginActivityModel.js';
 
 const createToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET);
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
+
+const getMe = async (req, res) => {
+  try {
+    const user = await userModel.findById(req.user._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // Route for user login
@@ -22,6 +35,13 @@ const loginUser = async (req, res) => {
 
     if (isMatch) {
       const token = createToken(user._id);
+      // Log login activity
+      await LoginActivity.create({
+        user: user._id,
+        action: 'login',
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
       res.json({
         success: true,
         token,
@@ -102,4 +122,4 @@ const adminLogin = async (req, res) => {
   }
 };
 
-export { loginUser, registerUser, adminLogin };
+export { loginUser, registerUser, adminLogin, getMe };
