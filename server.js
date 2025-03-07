@@ -27,7 +27,7 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
 // Global activity tracking for authenticated routes
-app.use('/api', authUser, trackUserActivity);
+// app.use('/api', authUser, trackUserActivity);
 
 // api endpoints
 app.use('/api/v1/user', userRouter);
