@@ -12,10 +12,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // Placing orders using COD Method
 const placeOrder = async (req, res) => {
   try {
-    const { userId, items, amount, address } = req.body;
+    const { items, amount, address } = req.body;
 
     const orderData = {
-      userId,
+      userId: req.user._id,
       items,
       address,
       amount,
@@ -27,7 +27,7 @@ const placeOrder = async (req, res) => {
     const newOrder = new orderModel(orderData);
     await newOrder.save();
 
-    await userModel.findByIdAndUpdate(userId, { cartData: {} });
+    await userModel.findByIdAndUpdate(req.user._id, { cartData: {} });
 
     res.json({ success: true, message: 'Order Placed' });
   } catch (error) {
@@ -39,11 +39,11 @@ const placeOrder = async (req, res) => {
 // Placing orders using Stripe Method
 const placeOrderStripe = async (req, res) => {
   try {
-    const { userId, items, amount, address } = req.body;
+    const { items, amount, address } = req.body;
     const { origin } = req.headers;
 
     const orderData = {
-      userId,
+      userId: req.user._id,
       items,
       address,
       amount,
@@ -93,12 +93,12 @@ const placeOrderStripe = async (req, res) => {
 
 // Verify Stripe
 const verifyStripe = async (req, res) => {
-  const { orderId, success, userId } = req.body;
+  const { orderId, success } = req.body;
 
   try {
     if (success === 'true') {
       await orderModel.findByIdAndUpdate(orderId, { payment: true });
-      await userModel.findByIdAndUpdate(userId, { cartData: {} });
+      await userModel.findByIdAndUpdate(req.user._id, { cartData: {} });
       res.json({ success: true });
     } else {
       await orderModel.findByIdAndDelete(orderId);
@@ -124,9 +124,9 @@ const allOrders = async (req, res) => {
 // User Order Data For Forntend
 const userOrders = async (req, res) => {
   try {
-    const { userId } = req.body;
+    // const { userId } = req.body;
 
-    const orders = await orderModel.find({ userId });
+    const orders = await orderModel.find({ userId: req.user._id });
     res.json({ success: true, orders });
   } catch (error) {
     console.log(error);
