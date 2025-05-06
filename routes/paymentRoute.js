@@ -1,0 +1,21 @@
+import express from 'express';
+import {
+  initializePayment,
+  verifyPayment,
+  handleCallback,
+  handleWebhook,
+  getPaymentStatus,
+  processRefund,
+} from '../controllers/paymentController.js';
+import authUser from '../middleware/auth.js';
+
+const paymentRouter = express.Router();
+
+paymentRouter.post('/initialize', authUser, initializePayment);
+paymentRouter.get('/verify/:reference', authUser, verifyPayment);
+paymentRouter.get('/callback', handleCallback);
+paymentRouter.post('/webhook', handleWebhook);
+paymentRouter.get('/status/:reference', authUser, getPaymentStatus);
+paymentRouter.post('/refund', authUser, processRefund);
+
+export default paymentRouter;

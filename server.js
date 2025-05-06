@@ -13,6 +13,7 @@ import collectionRouter from './routes/collectionRoutes.js';
 import adminRouter from './routes/adminRoute.js';
 import authUser from './middleware/auth.js';
 import { trackUserActivity } from './middleware/activityTracking.js';
+import paymentRouter from './routes/paymentRoute.js';
 
 // App Config
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/v1/user', userRouter);
 app.use('/api/v1/product', productRouter);
 app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/order', orderRouter);
+app.use('/api/v1/payment', paymentRouter);
 app.use('/api/v1/category', categoryRouter);
 app.use('/api/v1/gallery', galleryRouter);
 app.use('/api/v1/collections', collectionRouter);
