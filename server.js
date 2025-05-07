@@ -22,9 +22,25 @@ connectDB();
 connectCloudinary();
 
 // middlewares
+const corsOptions = {
+  origin: [
+    'https://dblackrose.com',
+    'https://blackrose-admin.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://blackrose-gray.vercel.app',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
+// ✅ Make sure preflight (OPTIONS) requests use the same config
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.static('assets'));
-app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
 // Global activity tracking for authenticated routes
