@@ -204,37 +204,60 @@ export const createOrder = async (req, res) => {
   }
 };
 
-export const getOrderById = async (req, res) => {
+// export const getOrderById = async (req, res) => {
+//   try {
+//     const order = await orderModel.findById(req.params.id);
+
+//     if (!order) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Order not found',
+//       });
+//     }
+
+//     // Check if user is authorized to access this order
+//     if (
+//       order.userId.toString() !== req.user._id.toString() &&
+//       !req.user.isAdmin
+//     ) {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'Not authorized to access this order',
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       order: order,
+//     });
+//   } catch (error) {
+//     console.error('Get order error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to retrieve order',
+//       error: error.message,
+//     });
+//   }
+// };
+
+// controllers/orderController.js - Add this function
+
+export const getMyOrders = async (req, res) => {
   try {
-    const order = await orderModel.findById(req.params.id);
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found',
-      });
-    }
-
-    // Check if user is authorized to access this order
-    if (
-      order.userId.toString() !== req.user._id.toString() &&
-      !req.user.isAdmin
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this order',
-      });
-    }
+    // Find all orders for the current user, sorted by date in descending order (newest first)
+    const orders = await orderModel
+      .find({ userId: req.user._id })
+      .sort({ date: -1 });
 
     res.json({
       success: true,
-      order: order,
+      orders: orders,
     });
   } catch (error) {
-    console.error('Get order error:', error);
+    console.error('Get orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve order',
+      message: 'Failed to retrieve orders',
       error: error.message,
     });
   }

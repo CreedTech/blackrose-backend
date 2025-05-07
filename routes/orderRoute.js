@@ -9,7 +9,11 @@ import express from 'express';
 // } from '../controllers/orderController.js';
 import adminAuth from '../middleware/adminAuth.js';
 import authUser from '../middleware/auth.js';
-import { createOrder, getOrderById } from '../controllers/orderController.js';
+import {
+  createOrder,
+  getMyOrders,
+//   getOrderById,
+} from '../controllers/orderController.js';
 
 const orderRouter = express.Router();
 
@@ -28,6 +32,7 @@ const orderRouter = express.Router();
 // orderRouter.post('/verifyStripe', authUser, verifyStripe);
 
 orderRouter.post('/create', authUser, createOrder);
-orderRouter.get('/:id', authUser, getOrderById); // Fetch order details for authenticated user
+orderRouter.get('/my-orders', authUser, getMyOrders); // Fetch all orders for authenticated user
+// orderRouter.get('/:id', authUser, getOrderById); // Fetch order details for authenticated user
 
 export default orderRouter;
