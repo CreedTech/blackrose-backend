@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+// import fs from 'fs';
 import {
   exportMetrics,
   getAnalytics,
@@ -29,10 +29,10 @@ import {
 const adminRouter = express.Router();
 
 // Make sure upload directory exists
-const uploadDir = 'uploads/';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// const uploadDir = 'uploads/';
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir, { recursive: true });
+// }
 
 // Configure storage
 const storage = multer.diskStorage({
