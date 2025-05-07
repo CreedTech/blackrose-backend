@@ -36,14 +36,17 @@ if (!fs.existsSync(uploadDir)) {
 
 // Configure storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Create unique filename with original extension
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  // destination: function (req, file, cb) {
+  //   cb(null, file.originalname);
+  // },
+  // filename: function (req, file, cb) {
+  //   // Create unique filename with original extension
+  //   const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  //   const ext = path.extname(file.originalname);
+  //   cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  // },
+  filename: function (req, file, callback) {
+    callback(null, file.originalname);
   },
 });
 
