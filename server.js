@@ -29,6 +29,8 @@ const corsOptions = {
     'http://localhost:5173',
     'http://localhost:5174',
     'https://blackrose-gray.vercel.app',
+    'http://192.168.0.75:5174',
+    'https://192.168.0.75:5174',
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,

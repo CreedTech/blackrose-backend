@@ -57,6 +57,7 @@ const getMe = async (req, res) => {
 // };
 
 const loginUser = async (req, res) => {
+  console.log('Request body:', req.body);
   try {
     // Extract email and password directly from the request body
     const { email, password } = req.body;
