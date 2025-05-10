@@ -21,35 +21,88 @@ const getMe = async (req, res) => {
 };
 
 // Route for user login
+// const loginUser = async (req, res) => {
+//   try {
+//     const { email, password,isAdmin = false } = req.body;
+
+//     const user = await userModel.findOne({ email });
+
+//     if (!user) {
+//       return res.json({ success: false, message: "User doesn't exists" });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+
+//     if (isMatch) {
+//       const token = createToken(user._id);
+//       // Log login activity
+//       await LoginActivity.create({
+//         user: user._id,
+//         action: 'login',
+//         ip: req.ip,
+//         userAgent: req.headers['user-agent'],
+//       });
+//       res.json({
+//         success: true,
+//         token,
+//         user: { id: user._id, email: user.email, isAdmin: user.isAdmin },
+//       });
+//     } else {
+//       res.json({ success: false, message: 'Invalid credentials' });
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     res.json({ success: false, message: error.message });
+//   }
+// };
+
 const loginUser = async (req, res) => {
   try {
+    // Extract email and password directly from the request body
     const { email, password } = req.body;
+    const isAdmin = req.body.isAdmin === true;
 
     const user = await userModel.findOne({ email });
 
     if (!user) {
-      return res.json({ success: false, message: "User doesn't exists" });
+      return res.json({ success: false, message: "User doesn't exist" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
-    if (isMatch) {
-      const token = createToken(user._id);
-      // Log login activity
-      await LoginActivity.create({
-        user: user._id,
-        action: 'login',
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-      });
-      res.json({
-        success: true,
-        token,
-        user: { id: user._id, email: user.email, isAdmin: user.isAdmin },
-      });
-    } else {
-      res.json({ success: false, message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.json({ success: false, message: 'Invalid credentials' });
     }
+
+    // Admin validation
+    if (isAdmin && !user.isAdmin) {
+      return res.json({
+        success: false,
+        message: 'You do not have administrator privileges',
+      });
+    }
+
+    const token = createToken(user._id);
+
+    // Log login activity
+    await LoginActivity.create({
+      user: user._id,
+      action: 'login',
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      loginType: isAdmin ? 'admin' : 'user',
+    });
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        // Include other needed user fields
+      },
+    });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
