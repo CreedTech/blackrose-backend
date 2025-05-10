@@ -84,13 +84,17 @@ const getImages = async (req, res) => {
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
         { tags: { $regex: search, $options: 'i' } },
       ];
+    }
+    if (category) {
+      query.category = category;
     }
 
     const images = await Image.find(query)
       .select('-originalUrl -publicId') // Exclude fields here
-      .populate('photographer', 'name')
+      .populate('photographer', 'name email')
       .populate('category', 'title')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)

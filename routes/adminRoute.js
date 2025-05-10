@@ -3,13 +3,26 @@ import multer from 'multer';
 import path from 'path';
 // import fs from 'fs';
 import {
+  createCategory,
+  deleteCategory,
+  deleteImage,
+  deleteUser,
   exportMetrics,
   getAnalytics,
+  getCategories,
   getDashboardStats,
+  getImageDetails,
+  getImages,
   getMetricsByCustomRange,
   getMetricsByRange,
+  getPhotoStats,
+  getUserDetails,
   getUserMetrics,
   getUsers,
+  toggleFeatureImage,
+  updateCategory,
+  updateImage,
+  updateUser,
   updateUserRole,
 } from '../controllers/adminController.js';
 import { adminOnly } from '../middleware/adminAuth.js';
@@ -120,5 +133,28 @@ adminRouter.get(
 adminRouter.post('/products', authUser, adminOnly, productUpload, addProduct);
 adminRouter.get('/products', authUser, adminOnly, listProducts);
 adminRouter.delete('/products/:id', authUser, adminOnly, removeProduct);
+
+// routes/adminRoutes.js
+adminRouter.get('/photo-stats', authUser, adminOnly, getPhotoStats);
+
+// User management
+adminRouter.get('/users', authUser, adminOnly, getUsers);
+adminRouter.get('/users/:id', authUser, adminOnly, getUserDetails);
+adminRouter.put('/users/:id', authUser, adminOnly, updateUser);
+adminRouter.delete('/users/:id', authUser, adminOnly, deleteUser);
+adminRouter.put('/users/:id/role', authUser, adminOnly, updateUserRole);
+
+// Image management
+adminRouter.get('/images', authUser, adminOnly, getImages);
+adminRouter.get('/images/:id', authUser, adminOnly, getImageDetails);
+adminRouter.put('/images/:id', authUser, adminOnly, updateImage);
+adminRouter.delete('/images/:id', authUser, adminOnly, deleteImage);
+adminRouter.put('/images/:id/feature', authUser, adminOnly, toggleFeatureImage);
+
+// Category management
+adminRouter.get('/categories', authUser, adminOnly, getCategories);
+adminRouter.post('/categories', authUser, adminOnly, createCategory);
+adminRouter.put('/categories/:id', authUser, adminOnly, updateCategory);
+adminRouter.delete('/categories/:id', authUser, adminOnly, deleteCategory);
 
 export default adminRouter;

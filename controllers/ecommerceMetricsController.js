@@ -162,7 +162,7 @@ const getOrders = async (req, res) => {
     // Search by order ID or customer name/email
     if (search) {
       query.$or = [
-        { _id: { $regex: search, $options: 'i' } },
+        // { _id: { $regex: search, $options: 'i' } },
         { 'address.fullName': { $regex: search, $options: 'i' } },
         { 'address.email': { $regex: search, $options: 'i' } },
       ];

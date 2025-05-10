@@ -1,6 +1,6 @@
 import Activity from '../models/activityModel.js';
 import categoryModel from '../models/categoryModel.js';
-import imageModel from '../models/imageModel.js';
+import Image from '../models/imageModel.js';
 import Settings from '../models/settingsModel.js';
 import userModel from '../models/userModel.js';
 import {
@@ -15,6 +15,8 @@ import {
 } from 'date-fns';
 import { Parser } from 'json2csv';
 import ExcelJS from 'exceljs';
+import LoginActivity from '../models/loginActivityModel.js';
+import Collection from '../models/collectionModel.js';
 
 // Helper function to get date range
 const getDateRangeFromType = (type) => {
@@ -480,133 +482,6 @@ const getUserMetrics = async (req, res) => {
   }
 };
 
-// const getDashboardStats = async (req, res) => {
-//   try {
-//     const today = new Date();
-//     const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-//     const stats = await Promise.all([
-//       // Total users
-//       userModel.countDocuments(),
-//       // New users this week
-//       userModel.countDocuments({ createdAt: { $gte: lastWeek } }),
-//       // Total images
-//       imageModel.countDocuments(),
-//       // New images this week
-//       imageModel.countDocuments({ createdAt: { $gte: lastWeek } }),
-//       // Total views
-//       imageModel.aggregate([
-//         { $group: { _id: null, totalViews: { $sum: '$views' } } },
-//       ]),
-//       // Total downloads
-//       imageModel.aggregate([
-//         { $group: { _id: null, totalDownloads: { $sum: '$downloads' } } },
-//       ]),
-//       // Category distribution
-//       categoryModel.aggregate([
-//         {
-//           $lookup: {
-//             from: 'images',
-//             localField: '_id',
-//             foreignField: 'category',
-//             as: 'images',
-//           },
-//         },
-//         {
-//           $project: {
-//             title: 1,
-//             imageCount: { $size: '$images' },
-//           },
-//         },
-//       ]),
-//     ]);
-
-//     res.json({
-//       users: {
-//         total: stats[0],
-//         new: stats[1],
-//       },
-//       images: {
-//         total: stats[2],
-//         new: stats[3],
-//       },
-//       views: stats[4][0]?.totalViews || 0,
-//       downloads: stats[5][0]?.totalDownloads || 0,
-//       categoryDistribution: stats[6],
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// const getAnalytics = async (req, res) => {
-//   try {
-//     const { range = 'week' } = req.query;
-//     const today = new Date();
-//     let startDate;
-
-//     switch (range) {
-//       case 'month':
-//         startDate = new Date(today.setMonth(today.getMonth() - 1));
-//         break;
-//       case 'year':
-//         startDate = new Date(today.setFullYear(today.getFullYear() - 1));
-//         break;
-//       default: // week
-//         startDate = new Date(today.setDate(today.getDate() - 7));
-//     }
-
-//     const analyticsData = await imageModel.aggregate([
-//       {
-//         $match: {
-//           createdAt: { $gte: startDate },
-//         },
-//       },
-//       {
-//         $group: {
-//           _id: {
-//             $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-//           },
-//           views: { $sum: '$views' },
-//           downloads: { $sum: '$downloads' },
-//           uploads: { $sum: 1 },
-//         },
-//       },
-//       {
-//         $sort: { _id: 1 },
-//       },
-//     ]);
-
-//     // Get user activity
-//     const userActivity = await userModel.aggregate([
-//       {
-//         $match: {
-//           lastActive: { $gte: startDate },
-//         },
-//       },
-//       {
-//         $group: {
-//           _id: {
-//             $dateToString: { format: '%Y-%m-%d', date: '$lastActive' },
-//           },
-//           activeUsers: { $sum: 1 },
-//         },
-//       },
-//       {
-//         $sort: { _id: 1 },
-//       },
-//     ]);
-
-//     res.json({
-//       analytics: analyticsData,
-//       userActivity,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
 const getUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -626,7 +501,7 @@ const getUsers = async (req, res) => {
     }
 
     const users = await userModel
-      .find(query)
+      .find(query).populate('uploadedPhotos', 'title watermarkedUrl views likeCount')
       .select('-password')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -640,6 +515,74 @@ const getUsers = async (req, res) => {
       totalPages: Math.ceil(total / limit),
       total,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getUserDetails = async (req, res) => {
+  try {
+    const user = await userModel
+      .findById(req.params.id)
+      .select('-password')
+      .populate('uploadedPhotos', 'title watermarkedUrl views likes')
+      .populate('likedPhotos', 'title watermarkedUrl')
+      .populate('collections', 'name imageCount');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get user activity
+    const activity = await Activity.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('imageId', 'title');
+
+    // Get login history
+    const loginHistory = await LoginActivity.find({ user: user._id })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.json({
+      user,
+      activity,
+      loginHistory,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+export const updateUser = async (req, res) => {
+  try {
+    const updates = { ...req.body };
+    delete updates.password; // Don't allow password updates through this route
+
+    const user = await userModel
+      .findByIdAndUpdate(req.params.id, updates, { new: true })
+      .select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await userModel.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Could add code to handle user's images, collections, etc.
+
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -695,6 +638,37 @@ const updateSettings = async (req, res) => {
   }
 };
 
+// export const getDashboardStats = async (req, res) => {
+//   try {
+//     const stats = {
+//       totalUsers: await userModel.countDocuments(),
+//       totalImages: await Image.countDocuments(),
+//       totalCategories: await Category.countDocuments(),
+//       totalCollections: await Collection.countDocuments(),
+//       totalViews: await Image.aggregate([
+//         { $group: { _id: null, totalViews: { $sum: '$views' } } }
+//       ]).then(result => (result.length > 0 ? result[0].totalViews : 0)),
+//       totalDownloads: await Image.aggregate([
+//         { $group: { _id: null, totalDownloads: { $sum: '$downloads' } } }
+//       ]).then(result => (result.length > 0 ? result[0].totalDownloads : 0)),
+//       recentActivity: await Activity.find()
+//         .sort({ createdAt: -1 })
+//         .limit(10)
+//         .populate('userId', 'name email')
+//         .populate('imageId', 'title'),
+//       topImages: await Image.find()
+//         .sort({ views: -1 })
+//         .limit(5)
+//         .select('title watermarkedUrl views downloads')
+//         .populate('photographer', 'name')
+//     };
+
+//     res.json(stats);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 // controllers/adminMetricsController.js
 const getDashboardStats = async (req, res) => {
   try {
@@ -709,11 +683,11 @@ const getDashboardStats = async (req, res) => {
       userModel.countDocuments({ createdAt: { $gte: lastMonth } }),
 
       // Image stats
-      imageModel.countDocuments(),
-      imageModel.countDocuments({ createdAt: { $gte: lastWeek } }),
+      Image.countDocuments(),
+      Image.countDocuments({ createdAt: { $gte: lastWeek } }),
 
       // Total views and downloads
-      imageModel.aggregate([
+      Image.aggregate([
         {
           $group: {
             _id: null,
@@ -743,7 +717,7 @@ const getDashboardStats = async (req, res) => {
       ]),
 
       // Most popular photos
-      imageModel.aggregate([
+      Image.aggregate([
         {
           $project: {
             title: 1,
@@ -904,7 +878,7 @@ const getDashboardStats = async (req, res) => {
 // };
 
 // const getContentMetrics = async (startDate) => {
-//   return await imageModel.aggregate([
+//   return await Image.aggregate([
 //     {
 //       $match: {
 //         createdAt: { $gte: startDate },
@@ -1077,7 +1051,7 @@ const getUserMetric = async (startDate, dateRange) => {
 };
 
 const getContentMetrics = async (startDate, dateRange) => {
-  const metrics = await imageModel.aggregate([
+  const metrics = await Image.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate },
@@ -1154,6 +1128,267 @@ const getEngagementMetrics = async (startDate, dateRange) => {
   }));
 };
 
+// Image management
+export const getImages = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const category = req.query.category;
+    const sort = req.query.sort || '-createdAt';
+
+    let query = {};
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    const images = await Image.find(query)
+      .populate('photographer', 'name email')
+      .populate('category', 'title')
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort(sort);
+
+    const total = await Image.countDocuments(query);
+
+    res.json({
+      images,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getImageDetails = async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.id)
+      .populate('photographer', 'name email')
+      .populate('category', 'title')
+      .populate('likes', 'name email');
+
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    res.json(image);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateImage = async (req, res) => {
+  try {
+    const updates = { ...req.body };
+
+    // Convert tags from string to array if provided as string
+    if (typeof updates.tags === 'string') {
+      updates.tags = updates.tags.split(',').map((tag) => tag.trim());
+    }
+
+    const image = await Image.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+    })
+      .populate('photographer', 'name email')
+      .populate('category', 'title');
+
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    res.json(image);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteImage = async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.id);
+
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    // Remove from collections
+    await Collection.updateMany(
+      { images: image._id },
+      { $pull: { images: image._id } }
+    );
+
+    // Remove from user's uploaded photos
+    await userModel.updateMany(
+      { uploadedPhotos: image._id },
+      { $pull: { uploadedPhotos: image._id } }
+    );
+
+    // Remove from user's liked photos
+    await userModel.updateMany(
+      { likedPhotos: image._id },
+      { $pull: { likedPhotos: image._id } }
+    );
+
+    // Delete image document
+    await image.deleteOne();
+
+    // Actually delete from cloudinary
+    // cloudinary.uploader.destroy(image.publicId);
+
+    res.json({ message: 'Image deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const toggleFeatureImage = async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.id);
+
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    image.featured = !image.featured;
+    await image.save();
+
+    res.json({ featured: image.featured });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCategories = async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ order: 1, title: 1 });
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Already implemented in your categoryController
+export const createCategory = async (req, res) => {
+  // Use your existing implementation
+};
+
+export const updateCategory = async (req, res) => {
+  // Use your existing implementation
+};
+
+export const deleteCategory = async (req, res) => {
+  // Use your existing implementation
+};
+
+// Activity logs
+export const getActivityLogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const type = req.query.type;
+    const userId = req.query.userId;
+
+    let query = {};
+
+    if (type) {
+      query.type = type;
+    }
+
+    if (userId) {
+      query.userId = userId;
+    }
+
+    const activities = await Activity.find(query)
+      .populate('userId', 'name email')
+      .populate('imageId', 'title watermarkedUrl')
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const total = await Activity.countDocuments(query);
+
+    res.json({
+      activities,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// controllers/adminController.js (add this function)
+
+const getPhotoStats = async (req, res) => {
+  try {
+    // Fetch all the necessary stats in parallel
+    const [
+      totalPhotos,
+      // pendingPhotos,
+      mostPopularPhoto,
+      // totalRevenue,
+      // More complex query for 30-day growth
+      previousPeriodPhotos,
+      currentPeriodPhotos,
+    ] = await Promise.all([
+      Image.countDocuments(),
+      // Image.countDocuments({ status: 'pending' }),
+      Image.findOne().sort({ views: -1 }).select('title views'),
+      // If you have a revenue collection or field
+      // Otherwise you might need to calculate this from orders or payment records
+      0, // Placeholder if you don't have this data yet
+
+      // Photos uploaded in previous 30 days
+      Image.countDocuments({
+        createdAt: {
+          $gte: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+          $lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        },
+      }),
+      // Photos uploaded in last 30 days
+      Image.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      }),
+    ]);
+
+    // Calculate growth rate
+    const growthRate =
+      previousPeriodPhotos > 0
+        ? ((currentPeriodPhotos - previousPeriodPhotos) /
+            previousPeriodPhotos) *
+          100
+        : 100;
+
+    // Format response
+    res.json({
+      totalPhotos,
+      // pendingApprovals: pendingPhotos,
+      mostPopular: mostPopularPhoto
+        ? {
+            title: mostPopularPhoto.title,
+            views: mostPopularPhoto.views,
+          }
+        : { title: 'N/A', views: 0 },
+      // earnings: totalRevenue,
+      growthRate: growthRate.toFixed(1),
+    });
+  } catch (error) {
+    console.error('Error fetching photo stats:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
 export {
   getMetricsByRange,
   getMetricsByCustomRange,
@@ -1165,4 +1400,5 @@ export {
   updateUserRole,
   getSettings,
   updateSettings,
+  getPhotoStats
 };

@@ -34,8 +34,15 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
     cartData: { type: Object, default: {} },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  { minimize: false }
+  { minimize: false },
+  {
+    timestamps: true,
+  }
 );
 
 const userModel = mongoose.models.user || mongoose.model('user', userSchema);
