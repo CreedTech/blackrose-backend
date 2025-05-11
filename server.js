@@ -14,6 +14,7 @@ import adminRouter from './routes/adminRoute.js';
 import authUser from './middleware/auth.js';
 import { trackUserActivity } from './middleware/activityTracking.js';
 import paymentRouter from './routes/paymentRoute.js';
+import blogRouter from './routes/blogRoutes.js';
 
 // App Config
 const app = express();
@@ -32,7 +33,7 @@ const corsOptions = {
     'http://192.168.0.75:5174',
     'https://192.168.0.75:5174',
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
   credentials: true,
 };
 
@@ -58,6 +59,7 @@ app.use('/api/v1/category', categoryRouter);
 app.use('/api/v1/gallery', galleryRouter);
 app.use('/api/v1/collections', collectionRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/blog', blogRouter);
 
 app.get('/', (req, res) => {
   res.send('API Working');
