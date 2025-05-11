@@ -73,9 +73,26 @@ export const getPostBySlug = async (req, res) => {
       });
     }
 
-    // Increment view count
-    post.views += 1;
-    await post.save({ validateBeforeSave: false });
+    // Get unique identifier for the viewer
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    const viewerId = `${ip}-${userAgent}`;
+
+    // Check if this post has a viewedBy array, if not create it
+    if (!post.viewedBy) {
+      // Add viewedBy field to your schema if you haven't already
+      post.viewedBy = [];
+    }
+
+    // Check if this viewer has already viewed the post
+    const hasViewed = post.viewedBy.includes(viewerId);
+
+    // Only increment view count for new viewers
+    if (!hasViewed) {
+      post.views += 1;
+      post.viewedBy.push(viewerId);
+      await post.save({ validateBeforeSave: false });
+    }
 
     res.status(200).json({
       status: 'success',

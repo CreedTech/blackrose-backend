@@ -65,6 +65,10 @@ const blogPostSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    viewedBy: {
+      type: [String],
+      default: [],
+    },
     likes: {
       type: Number,
       default: 0,
