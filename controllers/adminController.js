@@ -1271,25 +1271,25 @@ export const toggleFeatureImage = async (req, res) => {
 
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ order: 1, title: 1 });
+    const categories = await categoryModel.find().sort({ order: 1, title: 1 });
     res.json(categories);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Already implemented in your categoryController
-export const createCategory = async (req, res) => {
-  // Use your existing implementation
-};
+// // Already implemented in your categoryController
+// export const createCategory = async (req, res) => {
+//   // Use your existing implementation
+// };
 
-export const updateCategory = async (req, res) => {
-  // Use your existing implementation
-};
+// export const updateCategory = async (req, res) => {
+//   // Use your existing implementation
+// };
 
-export const deleteCategory = async (req, res) => {
-  // Use your existing implementation
-};
+// export const deleteCategory = async (req, res) => {
+//   // Use your existing implementation
+// };
 
 // Activity logs
 export const getActivityLogs = async (req, res) => {

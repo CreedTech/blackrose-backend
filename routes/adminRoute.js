@@ -3,8 +3,7 @@ import multer from 'multer';
 import path from 'path';
 // import fs from 'fs';
 import {
-  createCategory,
-  deleteCategory,
+
   deleteImage,
   deleteUser,
   exportMetrics,
@@ -20,7 +19,6 @@ import {
   getUserMetrics,
   getUsers,
   toggleFeatureImage,
-  updateCategory,
   updateImage,
   updateUser,
   updateUserRole,
@@ -38,6 +36,7 @@ import {
   listProducts,
   removeProduct,
 } from '../controllers/productController.js';
+import { createCategory, deleteCategory, updateCategory } from '../controllers/categoryController.js';
 
 const adminRouter = express.Router();
 
