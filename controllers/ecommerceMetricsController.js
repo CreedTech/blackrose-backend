@@ -6,7 +6,7 @@ import { subDays, startOfDay, endOfDay } from 'date-fns';
 // Get e-commerce overview statistics
 const getEcommerceOverview = async (req, res) => {
   try {
-    const { period = '7' } = req.query; // Default to 7 days
+    const { period = '365' } = req.query; // Default to 7 days
     const days = parseInt(period);
     const latestOrder = await orderModel.findOne().sort({ date: -1 });
 
