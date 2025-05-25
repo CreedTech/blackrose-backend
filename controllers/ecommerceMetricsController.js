@@ -8,10 +8,41 @@ const getEcommerceOverview = async (req, res) => {
   try {
     const { period = '7' } = req.query; // Default to 7 days
     const days = parseInt(period);
+    const latestOrder = await orderModel.findOne().sort({ date: -1 });
 
-    const endDate = new Date();
-    const startDate = subDays(endDate, days);
+    if (!latestOrder) {
+      return res.json({
+        success: true,
+        metrics: {
+          totalOrders: 0,
+          pendingOrders: 0,
+          totalRevenue: 0,
+          recentOrders: [],
+          topSellingProducts: [],
+          totalProducts: await productModel.countDocuments(),
+          lowStockProducts: await productModel.countDocuments({
+            stock: { $lt: 5 },
+            digitalDownload: false,
+          }),
+          dailySalesTrend: [],
+        },
+      });
+    }
+    // const endDate = new Date();
+    // const startDate = subDays(endDate, days);
+    const endDate = new Date(latestOrder.date);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - days);
 
+    // Use timestamps for comparison
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+
+    console.log(
+      `Date range: ${new Date(startTimestamp).toISOString()} to ${new Date(
+        endTimestamp
+      ).toISOString()}`
+    );
     const [
       totalOrders,
       pendingOrders,
@@ -21,22 +52,40 @@ const getEcommerceOverview = async (req, res) => {
       totalProducts,
       lowStockProducts,
     ] = await Promise.all([
-      // Total orders in period
       orderModel.countDocuments({
-        date: { $gte: startDate.getTime() },
+        date: { $gte: startTimestamp },
       }),
 
-      // Pending orders
       orderModel.countDocuments({
         status: { $in: ['Order Placed', 'Processing'] },
-        date: { $gte: startDate.getTime() },
+        date: { $gte: startTimestamp },
       }),
+
+      // const [
+      //   totalOrders,
+      //   pendingOrders,
+      //   totalRevenue,
+      //   recentOrders,
+      //   topSellingProducts,
+      //   totalProducts,
+      //   lowStockProducts,
+      // ] = await Promise.all([
+      //   // Total orders in period
+      //   orderModel.countDocuments({
+      //     date: { $gte: startDate.getTime() },
+      //   }),
+
+      //   // Pending orders
+      //   orderModel.countDocuments({
+      //     status: { $in: ['Order Placed', 'Processing'] },
+      //     date: { $gte: startDate.getTime() },
+      //   }),
 
       // Total revenue
       orderModel.aggregate([
         {
           $match: {
-            date: { $gte: startDate.getTime() },
+            date: { $gte: startTimestamp },
             paymentStatus: 'success',
           },
         },
@@ -55,7 +104,7 @@ const getEcommerceOverview = async (req, res) => {
       orderModel.aggregate([
         {
           $match: {
-            date: { $gte: startDate.getTime() },
+            date: { $gte: startTimestamp },
           },
         },
         { $unwind: '$items' },
@@ -88,7 +137,7 @@ const getEcommerceOverview = async (req, res) => {
     const dailySalesTrend = await orderModel.aggregate([
       {
         $match: {
-          date: { $gte: startDate.getTime() },
+          date: { $gte: startTimestamp },
           paymentStatus: 'success',
         },
       },
