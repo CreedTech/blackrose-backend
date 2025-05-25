@@ -75,16 +75,24 @@ const updateCategory = async (req, res) => {
 // Delete category (soft delete)
 const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
-    if (!category) {
+    console.log('Deleting category with ID:', req.params.id);
+
+    // Use findByIdAndDelete to directly remove the document
+    const deletedCategory = await Category.findByIdAndDelete(req.params.id);
+
+    if (!deletedCategory) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    category.active = false;
-    await category.save();
-
-    res.json({ message: 'Category deleted successfully' });
+    res.json({
+      message: 'Category deleted successfully',
+      deletedCategory: {
+        name: deletedCategory.name,
+        id: deletedCategory._id,
+      },
+    });
   } catch (error) {
+    console.error('Error deleting category:', error);
     res.status(500).json({ message: error.message });
   }
 };

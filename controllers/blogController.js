@@ -314,3 +314,48 @@ export const createCategory = async (req, res) => {
     });
   }
 };
+
+export const updateCategory = async (req, res) => {
+  try {
+    const category = await BlogCategory.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    Object.keys(req.body).forEach((key) => {
+      if (req.body[key] !== undefined) {
+        category[key] = req.body[key];
+      }
+    });
+
+    const updatedCategory = await category.save();
+    res.json(updatedCategory);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Delete category (soft delete)
+export const deleteCategory = async (req, res) => {
+  try {
+    console.log('Deleting category with ID:', req.params.id);
+
+    // Use findByIdAndDelete to directly remove the document
+    const deletedCategory = await BlogCategory.findByIdAndDelete(req.params.id);
+
+    if (!deletedCategory) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    res.json({
+      message: 'Category deleted successfully',
+      deletedCategory: {
+        name: deletedCategory.name,
+        id: deletedCategory._id,
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

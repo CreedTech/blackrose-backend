@@ -12,6 +12,8 @@ import {
   deletePost,
   getCategories,
   createCategory,
+  updateCategory,
+  deleteCategory,
 } from '../controllers/blogController.js';
 import upload from '../middleware/multer.js';
 import { uploadImage } from '../controllers/uploadController.js';
@@ -51,5 +53,7 @@ blogRouter.post(
 );
 blogRouter.delete('/admin/posts/:id', authUser, adminOnly, deletePost);
 blogRouter.post('/admin/categories', authUser, adminOnly, createCategory);
+blogRouter.put('/admin/categories/:id', authUser, adminOnly, updateCategory);
+blogRouter.delete('/admin/categories/:id', authUser, adminOnly, deleteCategory);
 
 export default blogRouter;
