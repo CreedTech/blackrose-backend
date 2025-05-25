@@ -68,7 +68,7 @@ const getEcommerceOverview = async (req, res) => {
         date: { $gte: startTimestamp },
       }),
       orderModel.countDocuments({
-        status: { $in: ['Completed'] },
+        status: { $in: ['Delivered'] },
         date: { $gte: startTimestamp },
       }),
       orderModel.countDocuments({
