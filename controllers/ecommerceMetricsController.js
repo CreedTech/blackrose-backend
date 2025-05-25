@@ -46,6 +46,9 @@ const getEcommerceOverview = async (req, res) => {
     const [
       totalOrders,
       pendingOrders,
+      processingOrders,
+      completedOrders,
+      cancelledOrders,
       totalRevenue,
       recentOrders,
       topSellingProducts,
@@ -57,7 +60,19 @@ const getEcommerceOverview = async (req, res) => {
       }),
 
       orderModel.countDocuments({
-        status: { $in: ['Order Placed', 'Processing'] },
+        status: { $in: ['Order Placed'] },
+        date: { $gte: startTimestamp },
+      }),
+      orderModel.countDocuments({
+        status: { $in: ['Processing'] },
+        date: { $gte: startTimestamp },
+      }),
+      orderModel.countDocuments({
+        status: { $in: ['Completed'] },
+        date: { $gte: startTimestamp },
+      }),
+      orderModel.countDocuments({
+        status: { $in: ['Cancelled'] },
         date: { $gte: startTimestamp },
       }),
 
@@ -158,6 +173,9 @@ const getEcommerceOverview = async (req, res) => {
       metrics: {
         totalOrders,
         pendingOrders,
+        processingOrders,
+        completedOrders,
+        cancelledOrders,
         totalRevenue: totalRevenue[0]?.total || 0,
         recentOrders,
         topSellingProducts,
