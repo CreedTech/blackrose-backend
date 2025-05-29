@@ -4,9 +4,180 @@ import productModel from '../models/productModel.js';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
 
 // Get e-commerce overview statistics
+// const getEcommerceOverview = async (req, res) => {
+//   try {
+//     const { period = '365' } = req.query; // Default to 7 days
+//     const days = parseInt(period);
+//     const latestOrder = await orderModel.findOne().sort({ date: -1 });
+
+//     if (!latestOrder) {
+//       return res.json({
+//         success: true,
+//         metrics: {
+//           totalOrders: 0,
+//           pendingOrders: 0,
+//           totalRevenue: 0,
+//           recentOrders: [],
+//           topSellingProducts: [],
+//           totalProducts: await productModel.countDocuments(),
+//           lowStockProducts: await productModel.countDocuments({
+//             stock: { $lt: 5 },
+//             digitalDownload: false,
+//           }),
+//           dailySalesTrend: [],
+//         },
+//       });
+//     }
+//     // const endDate = new Date();
+//     // const startDate = subDays(endDate, days);
+//     const endDate = new Date(latestOrder.date);
+//     const startDate = new Date(endDate);
+//     startDate.setDate(startDate.getDate() - days);
+//     console.log(endDate);
+
+//     // Use timestamps for comparison
+//     const startTimestamp = startDate.getTime();
+//     const endTimestamp = endDate.getTime();
+
+//     console.log(
+//       `Date range: ${new Date(startTimestamp).toISOString()} to ${new Date(
+//         endTimestamp
+//       ).toISOString()}`
+//     );
+//     console.log(startTimestamp);
+//     const [
+//       totalOrders,
+//       pendingOrders,
+//       processingOrders,
+//       completedOrders,
+//       cancelledOrders,
+//       totalRevenue,
+//       recentOrders,
+//       topSellingProducts,
+//       totalProducts,
+//       lowStockProducts,
+//     ] = await Promise.all([
+//       orderModel.countDocuments({
+//         // date: { $gte: startTimestamp },
+//       }),
+
+//       orderModel.countDocuments({
+//         status: { $in: ['Order Placed'] },
+//         date: { $gte: startTimestamp },
+//       }),
+//       orderModel.countDocuments({
+//         status: { $in: ['Processing'] },
+//         date: { $gte: startTimestamp },
+//       }),
+//       orderModel.countDocuments({
+//         status: { $in: ['Delivered','delivered'] },
+//         date: { $gte: startTimestamp },
+//       }),
+//       orderModel.countDocuments({
+//         status: { $in: ['Cancelled'] },
+//         date: { $gte: startTimestamp },
+//       }),
+
+//       // Total revenue
+//       orderModel.aggregate([
+//         {
+//           $match: {
+//             date: { $gte: startTimestamp },
+//             paymentStatus: 'success',
+//           },
+//         },
+//         {
+//           $group: {
+//             _id: null,
+//             total: { $sum: '$amount' },
+//           },
+//         },
+//       ]),
+
+//       // Recent orders
+//       orderModel.find({}).sort({ date: -1 }).limit(5),
+
+//       // Top selling products
+//       orderModel.aggregate([
+//         {
+//           $match: {
+//             date: { $gte: startTimestamp },
+//           },
+//         },
+//         { $unwind: '$items' },
+//         {
+//           $group: {
+//             _id: '$items.productId',
+//             title: { $first: '$items.title' },
+//             image: { $first: '$items.image' },
+//             totalSold: { $sum: '$items.quantity' },
+//             totalRevenue: {
+//               $sum: { $multiply: ['$items.price', '$items.quantity'] },
+//             },
+//           },
+//         },
+//         { $sort: { totalSold: -1 } },
+//         { $limit: 5 },
+//       ]),
+
+//       // Total products
+//       productModel.countDocuments(),
+
+//       // Low stock products
+//       productModel.countDocuments({
+//         stock: { $lt: 5 },
+//         digitalDownload: false,
+//       }),
+//     ]);
+
+//     // Daily sales trend
+//     const dailySalesTrend = await orderModel.aggregate([
+//       {
+//         $match: {
+//           date: { $gte: startTimestamp },
+//           paymentStatus: 'success',
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: {
+//             $dateToString: { format: '%Y-%m-%d', date: { $toDate: '$date' } },
+//           },
+//           sales: { $sum: '$amount' },
+//           orders: { $sum: 1 },
+//         },
+//       },
+//       { $sort: { _id: 1 } },
+//     ]);
+
+//     res.json({
+//       success: true,
+//       metrics: {
+//         totalOrders,
+//         pendingOrders,
+//         processingOrders,
+//         completedOrders,
+//         cancelledOrders,
+//         totalRevenue: totalRevenue[0]?.total || 0,
+//         recentOrders,
+//         topSellingProducts,
+//         totalProducts,
+//         lowStockProducts,
+//         dailySalesTrend,
+//       },
+//     });
+//   } catch (error) {
+//     console.error('Error fetching e-commerce metrics:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to fetch e-commerce metrics',
+//     });
+//   }
+// };
+
 const getEcommerceOverview = async (req, res) => {
   try {
-    const { period = '365' } = req.query; // Default to 7 days
+    const { period = '365' } = req.query;
     const days = parseInt(period);
     const latestOrder = await orderModel.findOne().sort({ date: -1 });
 
@@ -16,6 +187,9 @@ const getEcommerceOverview = async (req, res) => {
         metrics: {
           totalOrders: 0,
           pendingOrders: 0,
+          processingOrders: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
           totalRevenue: 0,
           recentOrders: [],
           topSellingProducts: [],
@@ -28,21 +202,38 @@ const getEcommerceOverview = async (req, res) => {
         },
       });
     }
-    // const endDate = new Date();
-    // const startDate = subDays(endDate, days);
-    const endDate = new Date(latestOrder.date);
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - days);
 
-    // Use timestamps for comparison
-    const startTimestamp = startDate.getTime();
-    const endTimestamp = endDate.getTime();
+    // Handle both timestamp and Date formats
+    const getTimestamp = (dateValue) => {
+      if (typeof dateValue === 'number') {
+        return dateValue; // Already a timestamp
+      }
+      if (dateValue instanceof Date) {
+        return dateValue.getTime();
+      }
+      if (typeof dateValue === 'string') {
+        return new Date(dateValue).getTime();
+      }
+      return Date.now(); // Fallback
+    };
+
+    // Calculate date range
+    const endTimestamp = getTimestamp(latestOrder.date);
+    const startTimestamp = endTimestamp - days * 24 * 60 * 60 * 1000;
+
+    // For display purposes
+    const endDate = new Date(endTimestamp);
+    const startDate = new Date(startTimestamp);
 
     console.log(
-      `Date range: ${new Date(startTimestamp).toISOString()} to ${new Date(
-        endTimestamp
-      ).toISOString()}`
+      `Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`
     );
+    console.log(`Timestamps: ${startTimestamp} to ${endTimestamp}`);
+
+    // Since your date field appears to be consistently stored as timestamps,
+    // we can use simple numeric comparison
+    const dateFilter = { date: { $gte: startTimestamp } };
+
     const [
       totalOrders,
       pendingOrders,
@@ -55,52 +246,35 @@ const getEcommerceOverview = async (req, res) => {
       totalProducts,
       lowStockProducts,
     ] = await Promise.all([
+      // Total orders (all time)
+      orderModel.countDocuments({}),
+
+      // Orders by status within date range
       orderModel.countDocuments({
-        date: { $gte: startTimestamp },
+        status: { $in: ['Order Placed','Pending'] },
+        // ...dateFilter,
       }),
 
-      orderModel.countDocuments({
-        status: { $in: ['Order Placed'] },
-        date: { $gte: startTimestamp },
-      }),
       orderModel.countDocuments({
         status: { $in: ['Processing'] },
-        date: { $gte: startTimestamp },
+        // ...dateFilter,
       }),
+
       orderModel.countDocuments({
-        status: { $in: ['Delivered'] },
-        date: { $gte: startTimestamp },
+        status: { $in: ['Delivered', 'delivered'] },
+        // ...dateFilter,
       }),
+
       orderModel.countDocuments({
         status: { $in: ['Cancelled'] },
-        date: { $gte: startTimestamp },
+        // ...dateFilter,
       }),
 
-      // const [
-      //   totalOrders,
-      //   pendingOrders,
-      //   totalRevenue,
-      //   recentOrders,
-      //   topSellingProducts,
-      //   totalProducts,
-      //   lowStockProducts,
-      // ] = await Promise.all([
-      //   // Total orders in period
-      //   orderModel.countDocuments({
-      //     date: { $gte: startDate.getTime() },
-      //   }),
-
-      //   // Pending orders
-      //   orderModel.countDocuments({
-      //     status: { $in: ['Order Placed', 'Processing'] },
-      //     date: { $gte: startDate.getTime() },
-      //   }),
-
-      // Total revenue
+      // Total revenue within date range
       orderModel.aggregate([
         {
           $match: {
-            date: { $gte: startTimestamp },
+            ...dateFilter,
             paymentStatus: 'success',
           },
         },
@@ -112,15 +286,13 @@ const getEcommerceOverview = async (req, res) => {
         },
       ]),
 
-      // Recent orders
+      // Recent orders (latest 5)
       orderModel.find({}).sort({ date: -1 }).limit(5),
 
-      // Top selling products
+      // Top selling products within date range
       orderModel.aggregate([
         {
-          $match: {
-            date: { $gte: startTimestamp },
-          },
+          $match: dateFilter,
         },
         { $unwind: '$items' },
         {
@@ -148,19 +320,28 @@ const getEcommerceOverview = async (req, res) => {
       }),
     ]);
 
-    // Daily sales trend
+    // Daily sales trend - convert timestamp to date for grouping
     const dailySalesTrend = await orderModel.aggregate([
       {
         $match: {
-          date: { $gte: startTimestamp },
+          ...dateFilter,
           paymentStatus: 'success',
         },
       },
       {
-        $group: {
-          _id: {
-            $dateToString: { format: '%Y-%m-%d', date: { $toDate: '$date' } },
+        $addFields: {
+          // Convert timestamp to date for grouping
+          dateOnly: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: { $toDate: '$date' }, // Convert timestamp to Date
+            },
           },
+        },
+      },
+      {
+        $group: {
+          _id: '$dateOnly',
           sales: { $sum: '$amount' },
           orders: { $sum: 1 },
         },
@@ -182,6 +363,13 @@ const getEcommerceOverview = async (req, res) => {
         totalProducts,
         lowStockProducts,
         dailySalesTrend,
+        // Add some debug info
+        dateRange: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          startTimestamp,
+          endTimestamp,
+        },
       },
     });
   } catch (error) {
@@ -189,6 +377,7 @@ const getEcommerceOverview = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch e-commerce metrics',
+      error: error.message,
     });
   }
 };
@@ -260,7 +449,10 @@ const getOrders = async (req, res) => {
         total: total,
         limit: limitNum,
         page: pageNum,
-        pages: totalPages,
+
+        totalPages,
+        hasNextPage: Number(page) < totalPages,
+        hasPrevPage: Number(page) > 1,
       },
     });
   } catch (error) {

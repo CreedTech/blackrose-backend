@@ -3,7 +3,6 @@ import multer from 'multer';
 import path from 'path';
 // import fs from 'fs';
 import {
-
   deleteImage,
   deleteUser,
   exportMetrics,
@@ -33,30 +32,26 @@ import {
 } from '../controllers/ecommerceMetricsController.js';
 import {
   addProduct,
+  addProductVariant,
+  getInventoryStatus,
   listProducts,
   removeProduct,
+  updateProduct,
+  updateVariantStock,
 } from '../controllers/productController.js';
-import { createCategory, deleteCategory, updateCategory } from '../controllers/categoryController.js';
+import {
+  createCategory,
+  deleteCategory,
+  generateCategoryReport,
+  getCategoryStatistics,
+  updateCategory,
+  updateCategoryFilters,
+} from '../controllers/categoryController.js';
 
 const adminRouter = express.Router();
 
-// Make sure upload directory exists
-// const uploadDir = 'uploads/';
-// if (!fs.existsSync(uploadDir)) {
-//   fs.mkdirSync(uploadDir, { recursive: true });
-// }
-
 // Configure storage
 const storage = multer.diskStorage({
-  // destination: function (req, file, cb) {
-  //   cb(null, file.originalname);
-  // },
-  // filename: function (req, file, cb) {
-  //   // Create unique filename with original extension
-  //   const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-  //   const ext = path.extname(file.originalname);
-  //   cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  // },
   filename: function (req, file, callback) {
     callback(null, file.originalname);
   },
@@ -130,6 +125,7 @@ adminRouter.get(
 
 // Products Management Routes
 adminRouter.post('/products', authUser, adminOnly, productUpload, addProduct);
+adminRouter.put('/products/:productId', authUser, adminOnly, productUpload, updateProduct);
 adminRouter.get('/products', authUser, adminOnly, listProducts);
 adminRouter.delete('/products/:id', authUser, adminOnly, removeProduct);
 
@@ -156,4 +152,53 @@ adminRouter.post('/categories', authUser, adminOnly, createCategory);
 adminRouter.put('/categories/:id', authUser, adminOnly, updateCategory);
 adminRouter.delete('/categories/:id', authUser, adminOnly, deleteCategory);
 
+adminRouter.post(
+  '/products/:productId/variants',
+  authUser,
+  adminOnly,
+  productUpload,
+  addProductVariant
+);
+
+adminRouter.put(
+  '/products/:productId/variants/:variantId/stock',
+  authUser,
+  adminOnly,
+  updateVariantStock
+);
+
+adminRouter.get(
+  '/products/:productId/inventory',
+  authUser,
+  adminOnly,
+  getInventoryStatus
+);
+
+// Admin Category Management (additional)
+adminRouter.get(
+  '/categories/statistics',
+  authUser,
+  adminOnly,
+  getCategoryStatistics
+);
+
+adminRouter.get(
+  '/categories/:categoryId/report',
+  authUser,
+  adminOnly,
+  generateCategoryReport
+);
+
+adminRouter.put(
+  '/categories/:categoryId/filters',
+  authUser,
+  adminOnly,
+  updateCategoryFilters
+);
+
+// Admin Order Management
+adminRouter.get('/orders/refund-requests', authUser, adminOnly, (req, res) => {
+  // This can be implemented in your orderController
+  res.status(501).json({ message: 'Not implemented yet' });
+});
 export default adminRouter;

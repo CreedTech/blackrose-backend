@@ -638,38 +638,6 @@ const updateSettings = async (req, res) => {
   }
 };
 
-// export const getDashboardStats = async (req, res) => {
-//   try {
-//     const stats = {
-//       totalUsers: await userModel.countDocuments(),
-//       totalImages: await Image.countDocuments(),
-//       totalCategories: await Category.countDocuments(),
-//       totalCollections: await Collection.countDocuments(),
-//       totalViews: await Image.aggregate([
-//         { $group: { _id: null, totalViews: { $sum: '$views' } } }
-//       ]).then(result => (result.length > 0 ? result[0].totalViews : 0)),
-//       totalDownloads: await Image.aggregate([
-//         { $group: { _id: null, totalDownloads: { $sum: '$downloads' } } }
-//       ]).then(result => (result.length > 0 ? result[0].totalDownloads : 0)),
-//       recentActivity: await Activity.find()
-//         .sort({ createdAt: -1 })
-//         .limit(10)
-//         .populate('userId', 'name email')
-//         .populate('imageId', 'title'),
-//       topImages: await Image.find()
-//         .sort({ views: -1 })
-//         .limit(5)
-//         .select('title watermarkedUrl views downloads')
-//         .populate('photographer', 'name')
-//     };
-
-//     res.json(stats);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// controllers/adminMetricsController.js
 const getDashboardStats = async (req, res) => {
   try {
     const today = new Date();
@@ -790,141 +758,6 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// const getAnalytics = async (req, res) => {
-//   try {
-//     const { range = 'week', type = 'all' } = req.query;
-//     const today = new Date();
-//     let startDate;
-
-//     switch (range) {
-//       case 'month':
-//         startDate = new Date(today.setMonth(today.getMonth() - 1));
-//         break;
-//       case 'year':
-//         startDate = new Date(today.setFullYear(today.getFullYear() - 1));
-//         break;
-//       default: // week
-//         startDate = new Date(today.setDate(today.getDate() - 7));
-//     }
-
-//     // Get metrics based on type
-//     let metrics;
-//     switch (type) {
-//       case 'users':
-//         metrics = await getUserMetric(startDate);
-//         break;
-//       case 'content':
-//         metrics = await getContentMetrics(startDate);
-//         break;
-//       case 'engagement':
-//         metrics = await getEngagementMetrics(startDate);
-//         break;
-//       default:
-//         metrics = await getUserMetric(startDate);
-//     }
-
-//     res.json(metrics);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// // Helper functions for different metric types
-// const getUserMetric = async (startDate) => {
-//   console.log(startDate);
-//   const metric = await userModel.aggregate([
-//     {
-//       $match: {
-//         createdAt: { $gte: startDate },
-//       },
-//     },
-//     {
-//       $group: {
-//         _id: {
-//           $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-//         },
-//         newUsers: { $sum: 1 },
-//         activeUsers: {
-//           $sum: {
-//             $cond: [{ $gte: ['$lastActive', startDate] }, 1, 0],
-//           },
-//         },
-//       },
-//     },
-//     { $sort: { _id: 1 } },
-//   ]);
-//   console.log(metric);
-//   return await userModel.aggregate([
-//     {
-//       $match: {
-//         createdAt: { $gte: startDate },
-//       },
-//     },
-//     {
-//       $group: {
-//         _id: {
-//           $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-//         },
-//         newUsers: { $sum: 1 },
-//         activeUsers: {
-//           $sum: {
-//             $cond: [{ $gte: ['$lastActive', startDate] }, 1, 0],
-//           },
-//         },
-//       },
-//     },
-//     { $sort: { _id: 1 } },
-//   ]);
-// };
-
-// const getContentMetrics = async (startDate) => {
-//   return await Image.aggregate([
-//     {
-//       $match: {
-//         createdAt: { $gte: startDate },
-//       },
-//     },
-//     {
-//       $group: {
-//         _id: {
-//           $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-//         },
-//         uploads: { $sum: 1 },
-//         views: { $sum: '$views' },
-//         downloads: { $sum: '$downloads' },
-//         likes: { $sum: { $size: '$likes' } },
-//       },
-//     },
-//     { $sort: { _id: 1 } },
-//   ]);
-// };
-
-// const getEngagementMetrics = async (startDate) => {
-//   return await Activity.aggregate([
-//     {
-//       $match: {
-//         createdAt: { $gte: startDate },
-//       },
-//     },
-//     {
-//       $group: {
-//         _id: {
-//           $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-//         },
-//         totalActivities: { $sum: 1 },
-//         uniqueUsers: { $addToSet: '$userId' },
-//       },
-//     },
-//     {
-//       $project: {
-//         date: '$_id',
-//         totalActivities: 1,
-//         uniqueUsers: { $size: '$uniqueUsers' },
-//       },
-//     },
-//     { $sort: { _id: 1 } },
-//   ]);
-// };
 
 const getAnalytics = async (req, res) => {
   try {
@@ -1278,18 +1111,6 @@ export const getCategories = async (req, res) => {
   }
 };
 
-// // Already implemented in your categoryController
-// export const createCategory = async (req, res) => {
-//   // Use your existing implementation
-// };
-
-// export const updateCategory = async (req, res) => {
-//   // Use your existing implementation
-// };
-
-// export const deleteCategory = async (req, res) => {
-//   // Use your existing implementation
-// };
 
 // Activity logs
 export const getActivityLogs = async (req, res) => {

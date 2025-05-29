@@ -1,38 +1,46 @@
-import express from 'express';
+// import express from 'express';
+// import adminAuth from '../middleware/adminAuth.js';
+// import authUser from '../middleware/auth.js';
 // import {
-//   placeOrder,
-//   placeOrderStripe,
-//   allOrders,
-//   userOrders,
-//   updateStatus,
-//   verifyStripe,
+//   createOrder,
+//   getMyOrders,
+// //   getOrderById,
 // } from '../controllers/orderController.js';
-import adminAuth from '../middleware/adminAuth.js';
+
+// const orderRouter = express.Router();
+
+// orderRouter.post('/create', authUser, createOrder);
+// orderRouter.get('/my-orders', authUser, getMyOrders);
+
+// export default orderRouter;
+
+import express from 'express';
+import adminAuth, { adminOnly } from '../middleware/adminAuth.js';
 import authUser from '../middleware/auth.js';
 import {
   createOrder,
   getMyOrders,
-//   getOrderById,
+  getOrderDetails,
+  cancelOrder,
 } from '../controllers/orderController.js';
 
 const orderRouter = express.Router();
 
-// Admin Features
-// orderRouter.post('/list', adminAuth, allOrders);
-// orderRouter.post('/status', adminAuth, updateStatus);
-
-// // Payment Features
-// orderRouter.post('/place', authUser, placeOrder);
-// orderRouter.post('/stripe', authUser, placeOrderStripe);
-
-// // User Feature
-// orderRouter.post('/userorders', authUser, userOrders);
-
-// // verify payment
-// orderRouter.post('/verifyStripe', authUser, verifyStripe);
-
+// User order routes
 orderRouter.post('/create', authUser, createOrder);
-orderRouter.get('/my-orders', authUser, getMyOrders); // Fetch all orders for authenticated user
-// orderRouter.get('/:id', authUser, getOrderById); // Fetch order details for authenticated user
+orderRouter.get('/my-orders', authUser, getMyOrders);
+orderRouter.get('/:orderId', authUser, adminOnly, getOrderDetails);
+orderRouter.post('/:orderId/cancel', authUser, cancelOrder);
+
+// Add admin routes for order management
+orderRouter.get('/admin/all', authUser, adminOnly, (req, res) => {
+  // This can be implemented in your orderController
+  res.status(501).json({ message: 'Not implemented yet' });
+});
+
+orderRouter.put('/admin/:orderId/status', authUser, adminOnly, (req, res) => {
+  // This can be implemented in your orderController
+  res.status(501).json({ message: 'Not implemented yet' });
+});
 
 export default orderRouter;
