@@ -8,7 +8,7 @@ import {
 
 export const startScheduledTasks = () => {
   // Check inventory alerts every 6 hours
-  cron.schedule('0 */6 * * *', async () => {
+  cron.schedule('0 0 * * *', async () => {
     console.log('Running inventory alerts check...');
     await checkInventoryAlerts();
   });
