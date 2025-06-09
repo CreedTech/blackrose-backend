@@ -80,12 +80,18 @@ const upload = multer({
 });
 
 // Product upload middleware setup
-const productUpload = upload.fields([
-  { name: 'image1', maxCount: 1 },
-  { name: 'image2', maxCount: 1 },
-  { name: 'image3', maxCount: 1 },
-  { name: 'image4', maxCount: 1 },
-  { name: 'image5', maxCount: 1 },
+// const productUpload = upload.fields([
+//   { name: 'image1', maxCount: 1 },
+//   { name: 'image2', maxCount: 1 },
+//   { name: 'image3', maxCount: 1 },
+//   { name: 'image4', maxCount: 1 },
+//   { name: 'image5', maxCount: 1 },
+// ]);
+const productUpload = upload.any();
+const variantUpload = upload.fields([
+  { name: 'variantImage1', maxCount: 1 },
+  { name: 'variantImage2', maxCount: 1 },
+  { name: 'variantImage3', maxCount: 1 },
 ]);
 
 adminRouter.get('/metrics/users', authUser, adminOnly, getUserMetrics);
@@ -125,7 +131,13 @@ adminRouter.get(
 
 // Products Management Routes
 adminRouter.post('/products', authUser, adminOnly, productUpload, addProduct);
-adminRouter.put('/products/:productId', authUser, adminOnly, productUpload, updateProduct);
+adminRouter.put(
+  '/products/:productId',
+  authUser,
+  adminOnly,
+  productUpload,
+  updateProduct
+);
 adminRouter.get('/products', authUser, adminOnly, listProducts);
 adminRouter.delete('/products/:id', authUser, adminOnly, removeProduct);
 

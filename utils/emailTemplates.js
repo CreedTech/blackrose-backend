@@ -369,7 +369,6 @@ export const emailTemplates = {
           </p>
         </div>
         
-        // <a href="#" class="button">Track Your Order</a>
         
         <p>We'll send you another email when your order ships. If you have any questions, feel free to contact us.</p>
       </div>
@@ -402,7 +401,6 @@ export const emailTemplates = {
         
         ${renderOrderSummary(order)}
         
-        // <a href="#" class="button">View Order Details</a>
       </div>
     `;
     return baseTemplate(content, 'Order Update');
@@ -444,7 +442,6 @@ export const emailTemplates = {
         
         <p>Your order is now confirmed and will be processed shortly.</p>
         
-        // <a href="#" class="button">View Order Details</a>
       </div>
     `;
     return baseTemplate(content, 'Payment Confirmation');
@@ -500,7 +497,6 @@ export const emailTemplates = {
         ${renderOrderSummary(order)}
         
         <div style="text-align: center; margin: 30px 0;">
-        //   <a href="#" class="button">Leave a Review</a>
           <a href="https://dblackrose.com/shop" class="button" style="margin-left: 10px;">Shop Again</a>
         </div>
         
@@ -601,7 +597,6 @@ export const emailTemplates = {
         
         <p>We'll send you an email notification as soon as your preorder items are ready to ship!</p>
         
-        // <a href="#" class="button">View Preorder Status</a>
       </div>
     `;
     return baseTemplate(content, 'Preorder Confirmation');
@@ -703,7 +698,6 @@ export const emailTemplates = {
           </p>
         </div>
         
-        // <a href="#" class="button">Process Order</a>
       </div>
     `;
     return baseTemplate(content, 'New Order Alert');
@@ -753,7 +747,6 @@ export const emailTemplates = {
         
         <p>Consider restocking this product to avoid stockouts.</p>
         
-        // <a href="#" class="button">Manage Inventory</a>
       </div>
     `;
     return baseTemplate(content, 'Low Stock Alert');

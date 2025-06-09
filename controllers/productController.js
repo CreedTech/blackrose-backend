@@ -21,56 +21,544 @@ const generateSKU = (productType, brand = '', modelNumber = '') => {
   return `${prefix}-${brandCode}${modelCode}-${timestamp}`;
 };
 
-// Helper function to parse and validate enum values
-const validateEnumField = (value, enumArray, fieldName) => {
-  if (!value) return undefined;
-  if (Array.isArray(value)) {
-    return value.filter((v) => enumArray.includes(v));
+// Helper function to parse custom size with proper validation
+const parseCustomSize = (customSizeStr) => {
+  if (!customSizeStr || customSizeStr === '{}' || customSizeStr === '') {
+    return undefined;
   }
-  return enumArray.includes(value) ? value : undefined;
-};
-
-// Helper function to parse JSON or comma-separated strings
-const parseArrayField = (input) => {
-  if (!input) return [];
-
+  
   try {
-    const parsed = JSON.parse(input);
-    if (Array.isArray(parsed)) return parsed;
-    return String(input)
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
-  } catch {
-    return String(input)
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
-  }
-};
-
-// Helper function to parse custom size
-const parseCustomSize = (sizeData) => {
-  if (!sizeData) return undefined;
-
-  try {
-    const parsed =
-      typeof sizeData === 'string' ? JSON.parse(sizeData) : sizeData;
+    const parsed = typeof customSizeStr === 'string' ? JSON.parse(customSizeStr) : customSizeStr;
+    
+    // Check if any meaningful values exist
+    const hasValues = Object.entries(parsed).some(([key, value]) => {
+      if (key === 'unit') return false; // unit doesn't count as a meaningful value
+      return value && value !== '' && value !== '0' && !isNaN(Number(value));
+    });
+    
+    if (!hasValues) return undefined;
+    
     return {
-      width: parsed.width ? Number(parsed.width) : undefined,
-      height: parsed.height ? Number(parsed.height) : undefined,
-      diameter: parsed.diameter ? Number(parsed.diameter) : undefined,
-      length: parsed.length ? Number(parsed.length) : undefined,
-      unit: ['cm', 'm', 'inches', 'feet'].includes(parsed.unit)
-        ? parsed.unit
-        : 'cm',
+      width: parsed.width && !isNaN(Number(parsed.width)) ? Number(parsed.width) : undefined,
+      height: parsed.height && !isNaN(Number(parsed.height)) ? Number(parsed.height) : undefined,
+      diameter: parsed.diameter && !isNaN(Number(parsed.diameter)) ? Number(parsed.diameter) : undefined,
+      length: parsed.length && !isNaN(Number(parsed.length)) ? Number(parsed.length) : undefined,
+      unit: parsed.unit || 'cm'
     };
-  } catch {
+  } catch (error) {
+    console.error('Error parsing customSize:', error);
     return undefined;
   }
 };
 
+// Helper function to parse weight object properly
+const parseWeightObject = (weightInput) => {
+  if (!weightInput || weightInput === '[object Object]' || weightInput === '{}') {
+    return { unit: 'kg' };
+  }
+  
+  try {
+    let parsed;
+    if (typeof weightInput === 'string') {
+      if (weightInput === '[object Object]') {
+        return { unit: 'kg' };
+      }
+      parsed = JSON.parse(weightInput);
+    } else if (typeof weightInput === 'object') {
+      parsed = weightInput;
+    } else {
+      return { unit: 'kg' };
+    }
+    
+    return {
+      category: validateEnumField(parsed.category, ['Lightweight', 'Medium Weight', 'Heavy']),
+      actualWeight: parsed.actualWeight && !isNaN(Number(parsed.actualWeight)) 
+        ? Number(parsed.actualWeight) : undefined,
+      unit: validateEnumField(parsed.unit, ['g', 'kg', 'oz', 'lbs']) || 'kg'
+    };
+  } catch (error) {
+    console.error('Error parsing weight:', error);
+    return { unit: 'kg' };
+  }
+};
+
+// Enhanced enum field validator
+const validateEnumField = (value, allowedValues) => {
+  if (!value || value === '' || value === 'undefined' || value === 'null') {
+    return undefined;
+  }
+  return allowedValues.includes(value) ? value : undefined;
+};
+
+// Enhanced array field parser
+const parseArrayField = (field) => {
+  if (!field) return [];
+  if (Array.isArray(field)) return field.filter(item => item && item !== '');
+  if (field === '[]' || field === '') return [];
+  if (typeof field === 'string') {
+    try {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed.filter(item => item && item !== '') : [];
+    } catch (error) {
+      // If JSON.parse fails, try splitting by comma
+      return field.split(',').map(item => item.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+// Helper to clean variant data
+const cleanVariantData = (variant) => {
+  const cleaned = { ...variant };
+  
+  // Handle images array - CRITICAL FIX
+  if (!cleaned.images || !Array.isArray(cleaned.images)) {
+    cleaned.images = [];
+  } else {
+    // Filter out invalid entries and ensure we have valid URLs or empty array
+    cleaned.images = cleaned.images.filter(img => {
+      if (!img) return false;
+      if (typeof img === 'string' && img.trim() !== '' && img !== '{}' && img !== '[object Object]') {
+        return true;
+      }
+      return false;
+    });
+  }
+  
+  // Clean enum fields
+  cleaned.color = validateEnumField(cleaned.color, [
+    'Black', 'White', 'Gray', 'Beige', 'Brown', 'Red', 'Yellow', 
+    'Blue', 'Green', 'Purple', 'Orange', 'Pink', 'Gold', 'Silver', 
+    'Transparent', 'Multi-color', 'Custom'
+  ]);
+  
+  cleaned.size = validateEnumField(cleaned.size, ['XS', 'S', 'M', 'L', 'XL', 'Custom']);
+  
+  cleaned.material = validateEnumField(cleaned.material, [
+    'Fabric', 'Cotton', 'Muslin', 'Velvet', 'Paper', 'Thick Cardstock',
+    'Glossy Paper', 'Matte Paper', 'Plastic', 'PVC', 'Acrylic', 'Wood',
+    'Natural Wood', 'Painted Wood', 'Metal', 'Aluminum', 'Steel', 'Vinyl',
+    'Foam', 'Silicone', 'Leather', 'Canvas', 'Marble Effect', 'Concrete Effect'
+  ]);
+  
+  cleaned.finish = validateEnumField(cleaned.finish, [
+    'Matte', 'Glossy', 'Satin', 'Textured', 'Reflective', 'Frosted',
+    'Rustic', 'Modern', 'Vintage', 'Patterned', 'Gradient', 'Solid Color'
+  ]);
+  
+  // Handle custom size
+  cleaned.customSize = parseCustomSize(cleaned.customSize);
+  
+  // Ensure numeric fields
+  cleaned.stock = Number(cleaned.stock) || 0;
+  cleaned.price = Number(cleaned.price) || 0;
+  cleaned.discount = Number(cleaned.discount) || 0;
+  
+  // Remove empty/undefined fields
+  Object.keys(cleaned).forEach(key => {
+    if (cleaned[key] === undefined || cleaned[key] === '' || cleaned[key] === null) {
+      delete cleaned[key];
+    }
+  });
+  
+  return cleaned;
+};
+
+// // SKU generator helper
+// const generateSKU = (productType, brand, suffix) => {
+//   const typePrefix = productType ? productType.substring(0, 3).toUpperCase() : 'PRD';
+//   const brandPrefix = brand ? brand.substring(0, 2).toUpperCase() : '';
+//   const timestamp = suffix || Date.now().toString().slice(-6);
+//   return `${typePrefix}-${brandPrefix}${brandPrefix ? '' : 'VAR'}-${timestamp}`;
+// };
+
+// Helper function to parse and validate enum values
+// const validateEnumField = (value, enumArray, fieldName) => {
+//   if (!value) return undefined;
+//   if (Array.isArray(value)) {
+//     return value.filter((v) => enumArray.includes(v));
+//   }
+//   return enumArray.includes(value) ? value : undefined;
+// };
+
+// // Helper function to parse JSON or comma-separated strings
+// const parseArrayField = (input) => {
+//   if (!input) return [];
+
+//   try {
+//     const parsed = JSON.parse(input);
+//     if (Array.isArray(parsed)) return parsed;
+//     return String(input)
+//       .split(',')
+//       .map((t) => t.trim())
+//       .filter(Boolean);
+//   } catch {
+//     return String(input)
+//       .split(',')
+//       .map((t) => t.trim())
+//       .filter(Boolean);
+//   }
+// };
+
+// // Helper function to parse custom size
+// const parseCustomSize = (sizeData) => {
+//   if (!sizeData) return undefined;
+
+//   try {
+//     const parsed =
+//       typeof sizeData === 'string' ? JSON.parse(sizeData) : sizeData;
+//     return {
+//       width: parsed.width ? Number(parsed.width) : undefined,
+//       height: parsed.height ? Number(parsed.height) : undefined,
+//       diameter: parsed.diameter ? Number(parsed.diameter) : undefined,
+//       length: parsed.length ? Number(parsed.length) : undefined,
+//       unit: ['cm', 'm', 'inches', 'feet'].includes(parsed.unit)
+//         ? parsed.unit
+//         : 'cm',
+//     };
+//   } catch {
+//     return undefined;
+//   }
+// };
+
 // Enhanced add product function
+// const addProduct = async (req, res) => {
+//   try {
+//     const submissionId = req.body.submissionId || Date.now().toString();
+
+//     // Check for duplicate submissions
+//     if (recentSubmissions.has(submissionId)) {
+//       console.log(`Duplicate submission detected: ${submissionId}`);
+//       const previousResponse = recentSubmissions.get(submissionId);
+//       return res.status(200).json(previousResponse);
+//     }
+
+//     console.log('Received product add request');
+//     console.log('Request body:', req.body);
+
+//     // Extract and validate basic fields
+//     const {
+//       title,
+//       description,
+//       price,
+//       category,
+//       productType,
+//       brand,
+//       modelNumber,
+//       condition = 'New',
+
+//       // Physical attributes
+//       size,
+//       customSize,
+//       color,
+//       customColor,
+//       material,
+//       finish,
+//       orientation,
+
+//       // Weight information
+//       weightCategory,
+//       actualWeight,
+//       weightUnit = 'kg',
+
+//       // Features and compatibility
+//       features,
+//       functionalityTags,
+//       usageCompatibility,
+//       portability,
+//       includedItems,
+
+//       // Customization options
+//       customizationOptions,
+
+//       // Category-specific attributes
+//       cameraAttributes,
+//       lensAttributes,
+//       lightingAttributes,
+//       tripodAttributes,
+//       backdropAttributes,
+//       propsAttributes,
+//       studioKitAttributes,
+
+//       // Availability and shipping
+//       availabilityType = 'In Stock',
+//       shippingOptions,
+
+//       // SEO fields
+//       seoTitle,
+//       seoDescription,
+//       seoKeywords,
+
+//       // Variants
+//       variants,
+
+//       // Legacy fields for backward compatibility
+//       discount = 0,
+//       stock = 1,
+//       bestseller = false,
+//       digitalDownload = false,
+//       tags,
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!title || !description || !price || !category || !productType) {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           'Missing required fields: title, description, price, category, and productType are required.',
+//       });
+//     }
+
+//     // Check if files exist
+//     if (!req.files || Object.keys(req.files).length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'No files were uploaded. You must upload at least one image.',
+//       });
+//     }
+
+//     // Process uploaded images
+//     const files = req.files;
+//     const imageFiles = [
+//       files.image1?.[0],
+//       files.image2?.[0],
+//       files.image3?.[0],
+//       files.image4?.[0],
+//       files.image5?.[0],
+//     ].filter(Boolean);
+
+//     if (imageFiles.length < 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'You must upload at least one image.',
+//       });
+//     }
+
+//     // Upload images to Cloudinary
+//     try {
+//       const imagesUrl = await Promise.all(
+//         imageFiles.map(async (item) => {
+//           console.log('Uploading to Cloudinary:', item.path);
+//           const result = await cloudinary.uploader.upload(item.path, {
+//             resource_type: 'image',
+//             folder: 'products',
+//             transformation: [
+//               { width: 800, height: 800, crop: 'limit', quality: 'auto' },
+//             ],
+//           });
+//           console.log('Cloudinary result:', result.secure_url);
+//           return result.secure_url;
+//         })
+//       );
+
+//       // Generate SKU if not provided
+//       const sku = req.body.sku || generateSKU(productType, brand, modelNumber);
+
+//       // Build product data with enhanced validation
+//       const productData = {
+//         // Basic information
+//         title,
+//         description,
+//         price: Number(price),
+//         images: imagesUrl,
+//         category,
+//         productType,
+//         sku,
+
+//         // Optional basic fields
+//         brand: brand || undefined,
+//         modelNumber: modelNumber || undefined,
+//         condition,
+
+//         // Physical attributes with validation
+//         size: validateEnumField(size, ['XS', 'S', 'M', 'L', 'XL', 'Custom']),
+//         customSize: parseCustomSize(customSize),
+//         color: parseArrayField(color),
+//         customColor: customColor || undefined,
+//         material: parseArrayField(material),
+//         finish: validateEnumField(finish, [
+//           'Matte',
+//           'Glossy',
+//           'Satin',
+//           'Textured',
+//           'Reflective',
+//           'Frosted',
+//           'Rustic',
+//           'Modern',
+//           'Vintage',
+//           'Patterned',
+//           'Gradient',
+//           'Solid Color',
+//         ]),
+//         orientation: parseArrayField(orientation),
+
+//         // Weight information
+//         weight: {
+//           category: validateEnumField(weightCategory, [
+//             'Lightweight',
+//             'Medium Weight',
+//             'Heavy',
+//           ]),
+//           actualWeight: actualWeight ? Number(actualWeight) : undefined,
+//           unit: validateEnumField(weightUnit, ['g', 'kg', 'oz', 'lbs']) || 'kg',
+//         },
+
+//         // Features and functionality
+//         features: parseArrayField(features),
+//         functionalityTags: parseArrayField(functionalityTags),
+//         usageCompatibility: parseArrayField(usageCompatibility),
+//         portability: parseArrayField(portability),
+//         includedItems: parseArrayField(includedItems),
+
+//         // Customization options
+//         customizationOptions: customizationOptions
+//           ? {
+//               customText:
+//                 customizationOptions.customText === 'true' ||
+//                 customizationOptions.customText === true,
+//               customSize:
+//                 customizationOptions.customSize === 'true' ||
+//                 customizationOptions.customSize === true,
+//               customColor:
+//                 customizationOptions.customColor === 'true' ||
+//                 customizationOptions.customColor === true,
+//               logoPrinting:
+//                 customizationOptions.logoPrinting === 'true' ||
+//                 customizationOptions.logoPrinting === true,
+//               addonAccessories:
+//                 customizationOptions.addonAccessories === 'true' ||
+//                 customizationOptions.addonAccessories === true,
+//             }
+//           : undefined,
+
+//         // Availability and shipping
+//         availabilityType:
+//           validateEnumField(availabilityType, [
+//             'In Stock',
+//             'Made to Order',
+//             'Pre-order',
+//             'Limited Edition',
+//           ]) || 'In Stock',
+//         shippingOptions: parseArrayField(shippingOptions),
+
+//         // SEO fields
+//         seoTitle: seoTitle || title,
+//         seoDescription: seoDescription || description,
+//         seoKeywords: parseArrayField(seoKeywords),
+
+//         // Category-specific attributes (parse JSON if provided)
+//         cameraAttributes: cameraAttributes
+//           ? typeof cameraAttributes === 'string'
+//             ? JSON.parse(cameraAttributes)
+//             : cameraAttributes
+//           : undefined,
+//         lensAttributes: lensAttributes
+//           ? typeof lensAttributes === 'string'
+//             ? JSON.parse(lensAttributes)
+//             : lensAttributes
+//           : undefined,
+//         lightingAttributes: lightingAttributes
+//           ? typeof lightingAttributes === 'string'
+//             ? JSON.parse(lightingAttributes)
+//             : lightingAttributes
+//           : undefined,
+//         tripodAttributes: tripodAttributes
+//           ? typeof tripodAttributes === 'string'
+//             ? JSON.parse(tripodAttributes)
+//             : tripodAttributes
+//           : undefined,
+//         backdropAttributes: backdropAttributes
+//           ? typeof backdropAttributes === 'string'
+//             ? JSON.parse(backdropAttributes)
+//             : backdropAttributes
+//           : undefined,
+//         propsAttributes: propsAttributes
+//           ? typeof propsAttributes === 'string'
+//             ? JSON.parse(propsAttributes)
+//             : propsAttributes
+//           : undefined,
+//         studioKitAttributes: studioKitAttributes
+//           ? typeof studioKitAttributes === 'string'
+//             ? JSON.parse(studioKitAttributes)
+//             : studioKitAttributes
+//           : undefined,
+
+//         // Process variants if provided
+//         variants: variants
+//           ? (Array.isArray(variants) ? variants : JSON.parse(variants)).map(
+//               (variant) => ({
+//                 ...variant,
+//                 sku:
+//                   variant.sku ||
+//                   generateSKU(productType, brand, `VAR${Date.now()}`),
+//                 stock: Number(variant.stock) || 0,
+//                 price: Number(variant.price),
+//                 discount: Number(variant.discount) || 0,
+//                 isActive: variant.isActive !== false,
+//               })
+//             )
+//           : [],
+
+//         // Legacy fields for backward compatibility
+//         discount: Number(discount),
+//         stock: Number(stock),
+//         bestseller: bestseller === 'true' || bestseller === true,
+//         digitalDownload: digitalDownload === 'true' || digitalDownload === true,
+//         tags: parseArrayField(tags),
+
+//         // Metadata
+//         date: Date.now(),
+//         isActive: true,
+//         featured: false,
+//       };
+
+//       // Remove undefined fields to keep the document clean
+//       Object.keys(productData).forEach((key) => {
+//         if (productData[key] === undefined) {
+//           delete productData[key];
+//         }
+//       });
+
+//       console.log('Creating product with data:', productData);
+
+//       const product = new productModel(productData);
+//       await product.save();
+//       try {
+//         const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+//         await sendNewProductAlert(product, adminEmail);
+//         console.log('New product alert sent to admin');
+//       } catch (emailError) {
+//         console.error('Error sending new product alert:', emailError);
+//       }
+
+//       // Store successful response to prevent duplicates
+//       const response = {
+//         success: true,
+//         message: 'Product Added Successfully',
+//         product: product,
+//       };
+
+//       recentSubmissions.set(submissionId, response);
+//       setTimeout(() => {
+//         recentSubmissions.delete(submissionId);
+//       }, 30000);
+
+//       return res.status(201).json(response);
+//     } catch (cloudinaryError) {
+//       console.error('Cloudinary error:', cloudinaryError);
+//       return res.status(500).json({
+//         success: false,
+//         message: `Image upload failed: ${cloudinaryError.message}`,
+//       });
+//     }
+//   } catch (error) {
+//     console.error('Product creation error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || 'Failed to add product',
+//     });
+//   }
+// };
 const addProduct = async (req, res) => {
   try {
     const submissionId = req.body.submissionId || Date.now().toString();
@@ -82,8 +570,19 @@ const addProduct = async (req, res) => {
       return res.status(200).json(previousResponse);
     }
 
-    console.log('Received product add request');
-    console.log('Request body:', req.body);
+    console.log('=== PRODUCT CREATION START ===');
+    console.log('Submission ID:', submissionId);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Files received:', req.files?.length || 0);
+
+    // Log all received files
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file, index) => {
+        console.log(
+          `File ${index + 1}: ${file.fieldname} - ${file.originalname}`
+        );
+      });
+    }
 
     // Extract and validate basic fields
     const {
@@ -95,8 +594,6 @@ const addProduct = async (req, res) => {
       brand,
       modelNumber,
       condition = 'New',
-
-      // Physical attributes
       size,
       customSize,
       color,
@@ -104,23 +601,15 @@ const addProduct = async (req, res) => {
       material,
       finish,
       orientation,
-
-      // Weight information
       weightCategory,
       actualWeight,
       weightUnit = 'kg',
-
-      // Features and compatibility
       features,
       functionalityTags,
       usageCompatibility,
       portability,
       includedItems,
-
-      // Customization options
       customizationOptions,
-
-      // Category-specific attributes
       cameraAttributes,
       lensAttributes,
       lightingAttributes,
@@ -128,25 +617,18 @@ const addProduct = async (req, res) => {
       backdropAttributes,
       propsAttributes,
       studioKitAttributes,
-
-      // Availability and shipping
       availabilityType = 'In Stock',
       shippingOptions,
-
-      // SEO fields
       seoTitle,
       seoDescription,
       seoKeywords,
-
-      // Variants
       variants,
-
-      // Legacy fields for backward compatibility
       discount = 0,
       stock = 1,
       bestseller = false,
       digitalDownload = false,
       tags,
+      weight,
     } = req.body;
 
     // Validate required fields
@@ -158,72 +640,270 @@ const addProduct = async (req, res) => {
       });
     }
 
-    // Check if files exist
-    if (!req.files || Object.keys(req.files).length === 0) {
+    // Validate price
+    if (isNaN(Number(price)) || Number(price) <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'No files were uploaded. You must upload at least one image.',
+        message: 'Price must be a valid positive number.',
       });
     }
 
-    // Process uploaded images
-    const files = req.files;
-    const imageFiles = [
-      files.image1?.[0],
-      files.image2?.[0],
-      files.image3?.[0],
-      files.image4?.[0],
-      files.image5?.[0],
-    ].filter(Boolean);
+    // Organize uploaded files
+    const organizedFiles = {
+      mainImages: [],
+      variantImages: {},
+    };
 
-    if (imageFiles.length < 1) {
-      return res.status(400).json({
-        success: false,
-        message: 'You must upload at least one image.',
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        if (
+          ['image1', 'image2', 'image3', 'image4', 'image5'].includes(
+            file.fieldname
+          )
+        ) {
+          // Main product images
+          organizedFiles.mainImages.push({
+            fieldname: file.fieldname,
+            file: file,
+          });
+        } else if (
+          file.fieldname.startsWith('variant_') &&
+          file.fieldname.includes('_image_')
+        ) {
+          // Variant images
+          organizedFiles.variantImages[file.fieldname] = file;
+        }
       });
     }
 
-    // Upload images to Cloudinary
+    console.log('Organized files:');
+    console.log('- Main images:', organizedFiles.mainImages.length);
+    console.log(
+      '- Variant images:',
+      Object.keys(organizedFiles.variantImages).length
+    );
+
+    // Check if we have at least one image
+    if (
+      organizedFiles.mainImages.length === 0 &&
+      Object.keys(organizedFiles.variantImages).length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one product image is required.',
+      });
+    }
+
     try {
-      const imagesUrl = await Promise.all(
-        imageFiles.map(async (item) => {
-          console.log('Uploading to Cloudinary:', item.path);
-          const result = await cloudinary.uploader.upload(item.path, {
+      console.log('=== STARTING IMAGE UPLOADS ===');
+
+      // Upload main product images to Cloudinary
+      let mainImagesUrls = [];
+      if (organizedFiles.mainImages.length > 0) {
+        console.log('Uploading main product images...');
+        mainImagesUrls = await Promise.all(
+          organizedFiles.mainImages
+            .sort((a, b) => a.fieldname.localeCompare(b.fieldname)) // Sort by image1, image2, etc.
+            .map(async (imageObj) => {
+              console.log(
+                `Uploading ${imageObj.fieldname}:`,
+                imageObj.file.originalname
+              );
+              const result = await cloudinary.uploader.upload(
+                imageObj.file.path,
+                {
+                  resource_type: 'image',
+                  folder: 'products',
+                  transformation: [
+                    {
+                      width: 1200,
+                      height: 1200,
+                      crop: 'limit',
+                      quality: 'auto',
+                      format: 'webp',
+                    },
+                  ],
+                }
+              );
+              console.log(
+                `✅ ${imageObj.fieldname} uploaded:`,
+                result.secure_url
+              );
+              return result.secure_url;
+            })
+        );
+      }
+
+      // Upload variant images to Cloudinary
+      const uploadedVariantImages = {};
+      if (Object.keys(organizedFiles.variantImages).length > 0) {
+        console.log('Uploading variant images...');
+        for (const [fieldName, file] of Object.entries(
+          organizedFiles.variantImages
+        )) {
+          console.log(
+            `Uploading variant image ${fieldName}:`,
+            file.originalname
+          );
+          const result = await cloudinary.uploader.upload(file.path, {
             resource_type: 'image',
-            folder: 'products',
+            folder: 'products/variants',
             transformation: [
-              { width: 800, height: 800, crop: 'limit', quality: 'auto' },
+              {
+                width: 1200,
+                height: 1200,
+                crop: 'limit',
+                quality: 'auto',
+                format: 'webp',
+              },
             ],
           });
-          console.log('Cloudinary result:', result.secure_url);
-          return result.secure_url;
-        })
-      );
+          uploadedVariantImages[fieldName] = result.secure_url;
+          console.log(
+            `✅ Variant image ${fieldName} uploaded:`,
+            result.secure_url
+          );
+        }
+      }
+
+      console.log('=== IMAGE UPLOADS COMPLETED ===');
 
       // Generate SKU if not provided
       const sku = req.body.sku || generateSKU(productType, brand, modelNumber);
 
-      // Build product data with enhanced validation
+      // Process variants with uploaded images
+      let processedVariants = [];
+      if (variants) {
+        try {
+          const parsedVariants = Array.isArray(variants)
+            ? variants
+            : JSON.parse(variants);
+          console.log('Processing variants:', parsedVariants.length);
+
+          processedVariants = parsedVariants
+            .map((variant, variantIndex) => {
+              console.log(`Processing variant ${variantIndex}:`, {
+                color: variant.color,
+                size: variant.size,
+                material: variant.material,
+                finish: variant.finish,
+                price: variant.price,
+              });
+
+              const cleanedVariant = cleanVariantData(variant);
+
+              // Handle variant images
+              if (variant.images && Array.isArray(variant.images)) {
+                const processedImages = variant.images
+                  .map((imageRef) => {
+                    // If it's a field name reference, get the uploaded URL
+                    if (
+                      typeof imageRef === 'string' &&
+                      imageRef.startsWith('variant_')
+                    ) {
+                      const uploadedUrl = uploadedVariantImages[imageRef];
+                      if (uploadedUrl) {
+                        console.log(`✅ Mapped ${imageRef} to ${uploadedUrl}`);
+                        return uploadedUrl;
+                      } else {
+                        console.log(
+                          `⚠️ No uploaded image found for ${imageRef}`
+                        );
+                        return null;
+                      }
+                    }
+                    // If it's already a URL, keep it
+                    if (
+                      typeof imageRef === 'string' &&
+                      (imageRef.startsWith('http') ||
+                        imageRef.startsWith('https'))
+                    ) {
+                      return imageRef;
+                    }
+                    return null;
+                  })
+                  .filter(Boolean);
+
+                cleanedVariant.images = processedImages;
+                console.log(
+                  `Variant ${variantIndex} final images:`,
+                  processedImages.length
+                );
+              } else {
+                cleanedVariant.images = [];
+              }
+
+              // Generate SKU for variant if not provided
+              cleanedVariant.sku =
+                cleanedVariant.sku ||
+                generateSKU(
+                  productType,
+                  brand,
+                  `VAR${Date.now()}_${variantIndex}`
+                );
+              cleanedVariant.isActive = cleanedVariant.isActive !== false;
+
+              return cleanedVariant;
+            })
+            .filter((variant) => {
+              const isValid = variant.price && variant.price > 0;
+              if (!isValid) {
+                console.log('⚠️ Filtering out invalid variant:', variant);
+              }
+              return isValid;
+            });
+
+          console.log(
+            `✅ Processed ${processedVariants.length} valid variants`
+          );
+        } catch (e) {
+          console.error('❌ Error parsing variants:', e);
+          processedVariants = [];
+        }
+      }
+
+      // If no main images but we have variants with images, use first variant image as main
+      if (mainImagesUrls.length === 0 && processedVariants.length > 0) {
+        const firstVariantWithImages = processedVariants.find(
+          (v) => v.images && v.images.length > 0
+        );
+        if (firstVariantWithImages) {
+          mainImagesUrls = [firstVariantWithImages.images[0]];
+          console.log('✅ Using variant image as main product image');
+        }
+      }
+
+      // Final validation - must have at least one image
+      if (mainImagesUrls.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one product image is required.',
+        });
+      }
+
+      console.log('=== BUILDING PRODUCT DATA ===');
+
+      // Build comprehensive product data
       const productData = {
         // Basic information
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         price: Number(price),
-        images: imagesUrl,
+        images: mainImagesUrls,
         category,
         productType,
         sku,
 
         // Optional basic fields
-        brand: brand || undefined,
-        modelNumber: modelNumber || undefined,
+        brand: brand?.trim() || undefined,
+        modelNumber: modelNumber?.trim() || undefined,
         condition,
 
         // Physical attributes with validation
         size: validateEnumField(size, ['XS', 'S', 'M', 'L', 'XL', 'Custom']),
         customSize: parseCustomSize(customSize),
         color: parseArrayField(color),
-        customColor: customColor || undefined,
+        customColor: customColor?.trim() || undefined,
         material: parseArrayField(material),
         finish: validateEnumField(finish, [
           'Matte',
@@ -241,16 +921,22 @@ const addProduct = async (req, res) => {
         ]),
         orientation: parseArrayField(orientation),
 
-        // Weight information
-        weight: {
-          category: validateEnumField(weightCategory, [
-            'Lightweight',
-            'Medium Weight',
-            'Heavy',
-          ]),
-          actualWeight: actualWeight ? Number(actualWeight) : undefined,
-          unit: validateEnumField(weightUnit, ['g', 'kg', 'oz', 'lbs']) || 'kg',
-        },
+        // Weight information - FIXED
+        weight: weight
+          ? parseWeightObject(weight)
+          : {
+              category: validateEnumField(weightCategory, [
+                'Lightweight',
+                'Medium Weight',
+                'Heavy',
+              ]),
+              actualWeight:
+                actualWeight && !isNaN(Number(actualWeight))
+                  ? Number(actualWeight)
+                  : undefined,
+              unit:
+                validateEnumField(weightUnit, ['g', 'kg', 'oz', 'lbs']) || 'kg',
+            },
 
         // Features and functionality
         features: parseArrayField(features),
@@ -261,23 +947,31 @@ const addProduct = async (req, res) => {
 
         // Customization options
         customizationOptions: customizationOptions
-          ? {
-              customText:
-                customizationOptions.customText === 'true' ||
-                customizationOptions.customText === true,
-              customSize:
-                customizationOptions.customSize === 'true' ||
-                customizationOptions.customSize === true,
-              customColor:
-                customizationOptions.customColor === 'true' ||
-                customizationOptions.customColor === true,
-              logoPrinting:
-                customizationOptions.logoPrinting === 'true' ||
-                customizationOptions.logoPrinting === true,
-              addonAccessories:
-                customizationOptions.addonAccessories === 'true' ||
-                customizationOptions.addonAccessories === true,
-            }
+          ? (() => {
+              try {
+                const parsed =
+                  typeof customizationOptions === 'string'
+                    ? JSON.parse(customizationOptions)
+                    : customizationOptions;
+                return {
+                  customText:
+                    parsed.customText === 'true' || parsed.customText === true,
+                  customSize:
+                    parsed.customSize === 'true' || parsed.customSize === true,
+                  customColor:
+                    parsed.customColor === 'true' ||
+                    parsed.customColor === true,
+                  logoPrinting:
+                    parsed.logoPrinting === 'true' ||
+                    parsed.logoPrinting === true,
+                  addonAccessories:
+                    parsed.addonAccessories === 'true' ||
+                    parsed.addonAccessories === true,
+                };
+              } catch (e) {
+                return undefined;
+              }
+            })()
           : undefined,
 
         // Availability and shipping
@@ -291,66 +985,101 @@ const addProduct = async (req, res) => {
         shippingOptions: parseArrayField(shippingOptions),
 
         // SEO fields
-        seoTitle: seoTitle || title,
-        seoDescription: seoDescription || description,
+        seoTitle: seoTitle?.trim() || title.trim(),
+        seoDescription: seoDescription?.trim() || description.trim(),
         seoKeywords: parseArrayField(seoKeywords),
 
-        // Category-specific attributes (parse JSON if provided)
+        // Category-specific attributes
         cameraAttributes: cameraAttributes
-          ? typeof cameraAttributes === 'string'
-            ? JSON.parse(cameraAttributes)
-            : cameraAttributes
-          : undefined,
-        lensAttributes: lensAttributes
-          ? typeof lensAttributes === 'string'
-            ? JSON.parse(lensAttributes)
-            : lensAttributes
-          : undefined,
-        lightingAttributes: lightingAttributes
-          ? typeof lightingAttributes === 'string'
-            ? JSON.parse(lightingAttributes)
-            : lightingAttributes
-          : undefined,
-        tripodAttributes: tripodAttributes
-          ? typeof tripodAttributes === 'string'
-            ? JSON.parse(tripodAttributes)
-            : tripodAttributes
-          : undefined,
-        backdropAttributes: backdropAttributes
-          ? typeof backdropAttributes === 'string'
-            ? JSON.parse(backdropAttributes)
-            : backdropAttributes
-          : undefined,
-        propsAttributes: propsAttributes
-          ? typeof propsAttributes === 'string'
-            ? JSON.parse(propsAttributes)
-            : propsAttributes
-          : undefined,
-        studioKitAttributes: studioKitAttributes
-          ? typeof studioKitAttributes === 'string'
-            ? JSON.parse(studioKitAttributes)
-            : studioKitAttributes
+          ? (() => {
+              try {
+                return typeof cameraAttributes === 'string'
+                  ? JSON.parse(cameraAttributes)
+                  : cameraAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
           : undefined,
 
-        // Process variants if provided
-        variants: variants
-          ? (Array.isArray(variants) ? variants : JSON.parse(variants)).map(
-              (variant) => ({
-                ...variant,
-                sku:
-                  variant.sku ||
-                  generateSKU(productType, brand, `VAR${Date.now()}`),
-                stock: Number(variant.stock) || 0,
-                price: Number(variant.price),
-                discount: Number(variant.discount) || 0,
-                isActive: variant.isActive !== false,
-              })
-            )
-          : [],
+        lensAttributes: lensAttributes
+          ? (() => {
+              try {
+                return typeof lensAttributes === 'string'
+                  ? JSON.parse(lensAttributes)
+                  : lensAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        lightingAttributes: lightingAttributes
+          ? (() => {
+              try {
+                return typeof lightingAttributes === 'string'
+                  ? JSON.parse(lightingAttributes)
+                  : lightingAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        tripodAttributes: tripodAttributes
+          ? (() => {
+              try {
+                return typeof tripodAttributes === 'string'
+                  ? JSON.parse(tripodAttributes)
+                  : tripodAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        backdropAttributes: backdropAttributes
+          ? (() => {
+              try {
+                return typeof backdropAttributes === 'string'
+                  ? JSON.parse(backdropAttributes)
+                  : backdropAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        propsAttributes: propsAttributes
+          ? (() => {
+              try {
+                return typeof propsAttributes === 'string'
+                  ? JSON.parse(propsAttributes)
+                  : propsAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        studioKitAttributes: studioKitAttributes
+          ? (() => {
+              try {
+                return typeof studioKitAttributes === 'string'
+                  ? JSON.parse(studioKitAttributes)
+                  : studioKitAttributes;
+              } catch (e) {
+                return undefined;
+              }
+            })()
+          : undefined,
+
+        // Processed variants with images
+        variants: processedVariants,
 
         // Legacy fields for backward compatibility
-        discount: Number(discount),
-        stock: Number(stock),
+        discount: Number(discount) || 0,
+        stock: Number(stock) || 1,
         bestseller: bestseller === 'true' || bestseller === true,
         digitalDownload: digitalDownload === 'true' || digitalDownload === true,
         tags: parseArrayField(tags),
@@ -363,28 +1092,67 @@ const addProduct = async (req, res) => {
 
       // Remove undefined fields to keep the document clean
       Object.keys(productData).forEach((key) => {
-        if (productData[key] === undefined) {
+        if (
+          productData[key] === undefined ||
+          (Array.isArray(productData[key]) &&
+            productData[key].length === 0 &&
+            !['variants', 'images'].includes(key))
+        ) {
           delete productData[key];
         }
       });
 
-      console.log('Creating product with data:', productData);
+      console.log('=== CREATING PRODUCT ===');
+      console.log('Product data summary:');
+      console.log('- Title:', productData.title);
+      console.log('- Main images:', productData.images?.length || 0);
+      console.log('- Variants:', productData.variants?.length || 0);
+      console.log(
+        '- Total variant images:',
+        productData.variants?.reduce(
+          (sum, v) => sum + (v.images?.length || 0),
+          0
+        ) || 0
+      );
 
       const product = new productModel(productData);
       await product.save();
+
+      console.log('✅ Product created successfully:', product._id);
+
+      // Send admin notification (optional)
       try {
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
-        await sendNewProductAlert(product, adminEmail);
-        console.log('New product alert sent to admin');
+        if (adminEmail) {
+          await sendNewProductAlert(product, adminEmail);
+          console.log('✅ Admin notification sent');
+        }
       } catch (emailError) {
-        console.error('Error sending new product alert:', emailError);
+        console.error(
+          '⚠️ Failed to send admin notification:',
+          emailError.message
+        );
+        // Don't fail the request if email fails
       }
 
       // Store successful response to prevent duplicates
       const response = {
         success: true,
         message: 'Product Added Successfully',
-        product: product,
+        product: {
+          _id: product._id,
+          title: product.title,
+          sku: product.sku,
+          price: product.price,
+          images: product.images,
+          variants: product.variants?.length || 0,
+          totalImages:
+            (product.images?.length || 0) +
+            (product.variants?.reduce(
+              (sum, v) => sum + (v.images?.length || 0),
+              0
+            ) || 0),
+        },
       };
 
       recentSubmissions.set(submissionId, response);
@@ -392,16 +1160,17 @@ const addProduct = async (req, res) => {
         recentSubmissions.delete(submissionId);
       }, 30000);
 
+      console.log('=== PRODUCT CREATION COMPLETED ===');
       return res.status(201).json(response);
-    } catch (cloudinaryError) {
-      console.error('Cloudinary error:', cloudinaryError);
+    } catch (uploadError) {
+      console.error('❌ Upload/Processing error:', uploadError);
       return res.status(500).json({
         success: false,
-        message: `Image upload failed: ${cloudinaryError.message}`,
+        message: `Upload failed: ${uploadError.message}`,
       });
     }
   } catch (error) {
-    console.error('Product creation error:', error);
+    console.error('❌ Product creation error:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to add product',
