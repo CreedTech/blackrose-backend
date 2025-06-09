@@ -3,12 +3,12 @@ import nodemailer from 'nodemailer';
 import { emailTemplates } from './emailTemplates.js';
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.resend.com',
-  port: 465,
+  host: process.env.RESEND_SMTP_HOST,
+  port: process.env.RESEND_SMTP_PORT,
   secure: true,
   auth: {
-    user: 'resend',
-    pass: 're_KWutJZ24_PHJKWp8PpJ63HU6DZbujpqGf',
+    user: process.env.SMTP_USER, 
+    pass: process.env.RESEND_API_KEY, 
   },
 });
 
