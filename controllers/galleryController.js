@@ -8,6 +8,7 @@ import userModel from '../models/userModel.js';
 import sharp from 'sharp';
 import { Readable } from 'stream';
 import Collection from '../models/collectionModel.js';
+import sendEmail from '../utils/emailService.js';
 
 // const watermarkPath = 'assets/water_mark.png';
 

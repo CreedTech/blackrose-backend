@@ -1,442 +1,12 @@
-// import { v2 as cloudinary } from 'cloudinary';
-// import productModel from '../models/productModel.js';
-
-// const recentSubmissions = new Map();
-
-// // function for add product
-// const addProduct = async (req, res) => {
-//   try {
-//     // Get submission ID if provided
-//     const submissionId = req.body.submissionId || Date.now().toString();
-
-//     // Check if this exact submission was recently processed (within last 30 seconds)
-//     if (recentSubmissions.has(submissionId)) {
-//       console.log(`Duplicate submission detected: ${submissionId}`);
-//       const previousResponse = recentSubmissions.get(submissionId);
-//       return res.status(200).json(previousResponse);
-//     }
-
-//     // Log the incoming request
-//     console.log('Received product add request');
-//     console.log('Request body:', req.body);
-//     console.log(
-//       'Files received:',
-//       req.files ? Object.keys(req.files).length : 'No files'
-//     );
-
-//     const {
-//       title,
-//       description,
-//       price,
-//       discount,
-//       category,
-//       bestseller,
-//       tags,
-//       digitalDownload,
-//       stock,
-//     } = req.body;
-
-//     // Check if files exist
-//     if (!req.files || Object.keys(req.files).length === 0) {
-//       console.log('No files found in request');
-//       return res.status(400).json({
-//         success: false,
-//         message: 'No files were uploaded. You must upload at least one image.',
-//       });
-//     }
-
-//     // Get all image files
-//     const files = req.files;
-//     console.log('Files object structure:', JSON.stringify(req.files));
-
-//     // Safely extract file information with fallbacks
-//     const image1 =
-//       files.image1 && files.image1.length > 0 ? files.image1[0] : null;
-//     const image2 =
-//       files.image2 && files.image2.length > 0 ? files.image2[0] : null;
-//     const image3 =
-//       files.image3 && files.image3.length > 0 ? files.image3[0] : null;
-//     const image4 =
-//       files.image4 && files.image4.length > 0 ? files.image4[0] : null;
-//     const image5 =
-//       files.image5 && files.image5.length > 0 ? files.image5[0] : null;
-
-//     // Log each image status
-//     console.log('Image1:', image1 ? 'Found' : 'Missing');
-//     console.log('Image2:', image2 ? 'Found' : 'Missing');
-//     console.log('Image3:', image3 ? 'Found' : 'Missing');
-//     console.log('Image4:', image4 ? 'Found' : 'Missing');
-//     console.log('Image5:', image5 ? 'Found' : 'Missing');
-
-//     // Filter out undefined values
-//     const images = [image1, image2, image3, image4, image5].filter(
-//       (item) => item !== null && item !== undefined
-//     );
-
-//     console.log('Total valid images found:', images.length);
-
-//     if (images.length < 1) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'You must upload at least one image.',
-//       });
-//     }
-
-//     // Upload images to Cloudinary
-//     try {
-//       const imagesUrl = await Promise.all(
-//         images.map(async (item) => {
-//           console.log('Uploading to Cloudinary:', item.path);
-//           let result = await cloudinary.uploader.upload(item.path, {
-//             resource_type: 'image',
-//           });
-//           console.log('Cloudinary result:', result.secure_url);
-//           return result.secure_url;
-//         })
-//       );
-
-//       const parseTags = (input) => {
-//         if (!input) return [];
-
-//         try {
-//           const parsed = JSON.parse(input);
-//           if (Array.isArray(parsed)) return parsed;
-//           return String(input)
-//             .split(',')
-//             .map((t) => t.trim());
-//         } catch {
-//           return String(input)
-//             .split(',')
-//             .map((t) => t.trim());
-//         }
-//       };
-
-//       const productData = {
-//         title,
-//         description,
-//         category,
-//         price: Number(price),
-//         discount: Number(discount) || 0,
-//         bestseller: bestseller === 'true',
-//         tags: tags ? parseTags(tags) : [],
-//         digitalDownload: digitalDownload === 'true',
-//         stock: Number(stock) || 1,
-//         image: imagesUrl,
-//         date: Date.now(),
-//       };
-
-//       console.log('Creating product with data:', productData);
-
-//       const product = new productModel(productData);
-//       await product.save();
-//       // If successful, store the response for this submission ID
-//       const response = {
-//         success: true,
-//         message: 'Product Added Successfully',
-//         product: product,
-//       };
-//       // Store for 30 seconds to prevent duplicates
-//       recentSubmissions.set(submissionId, response);
-//       setTimeout(() => {
-//         recentSubmissions.delete(submissionId);
-//       }, 30000);
-
-//       return res.status(201).json({
-//         success: true,
-//         message: 'Product Added Successfully',
-//         product: product,
-//       });
-//     } catch (cloudinaryError) {
-//       console.error('Cloudinary error:', cloudinaryError);
-//       return res.status(500).json({
-//         success: false,
-//         message: `Image upload failed: ${cloudinaryError.message}`,
-//       });
-//     }
-//   } catch (error) {
-//     console.error('Product creation error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || 'Failed to add product',
-//     });
-//   }
-// };
-
-// const listProducts = async (req, res) => {
-//   try {
-//     const products = await productModel.find({});
-//     res.json({ success: true, products });
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// // function for removing product
-// const removeProduct = async (req, res) => {
-//   try {
-//     console.log(req.params.id);
-//     await productModel.findByIdAndDelete(req.params.id);
-//     res.json({ success: true, message: 'Product Removed' });
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// // function for single product info
-// const singleProduct = async (req, res) => {
-//   //   console.log(req.params);
-//   try {
-//     const { productId } = req.params;
-//     const product = await productModel.findById(productId);
-//     res.json(product);
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-// const getSimilarProducts = async (req, res) => {
-//   try {
-//     const { productId } = req.params;
-
-//     // Get the current product first
-//     const product = await productModel.findById(productId);
-
-//     if (!product) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: 'Product not found' });
-//     }
-
-//     // Fetch products from same category (or similar tags)
-//     const similarProducts = await productModel
-//       .find({
-//         _id: { $ne: productId }, // exclude current product
-//         category: product.category,
-//       })
-//       .limit(8); // limit to 8 items
-
-//     res.json({ success: true, products: similarProducts });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-// const addReview = async (req, res) => {
-//   try {
-//     const { productId, comment, rating } = req.body;
-
-//     const product = await productModel.findById(productId);
-//     if (!product)
-//       return res.json({ success: false, message: 'Product not found' });
-//     if (
-//       product.reviews.some(
-//         (r) => r.userId.toString() === req.user._id.toString()
-//       )
-//     ) {
-//       return res.json({
-//         success: false,
-//         message: 'You already reviewed this product',
-//       });
-//     }
-
-//     product.reviews.push({ userId: req.user._id, comment, rating });
-
-//     // Recalculate average rating
-//     const ratings = product.reviews.map((r) => r.rating);
-//     product.rating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-
-//     await product.save();
-
-//     res.json({ success: true, message: 'Review added' });
-//   } catch (error) {
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// export {
-//   listProducts,
-//   addProduct,
-//   removeProduct,
-//   singleProduct,
-//   addReview,
-//   getSimilarProducts,
-// };
-
-// const addProduct = async (req, res) => {
-//   try {
-//     const submissionId = req.body.submissionId || Date.now().toString();
-
-//     if (recentSubmissions.has(submissionId)) {
-//       console.log(`Duplicate submission detected: ${submissionId}`);
-//       const previousResponse = recentSubmissions.get(submissionId);
-//       return res.status(200).json(previousResponse);
-//     }
-
-//     console.log('Received product add request');
-//     console.log('Request body:', req.body);
-//     console.log(
-//       'Files received:',
-//       req.files ? Object.keys(req.files).length : 'No files'
-//     );
-
-//     const {
-//       title,
-//       description,
-//       price,
-//       discount,
-//       category,
-//       bestseller,
-//       tags,
-//       digitalDownload,
-//       variants,
-//     } = req.body;
-
-//     if (!req.files || Object.keys(req.files).length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'No files were uploaded. You must upload at least one image.',
-//       });
-//     }
-
-//     // Extract images
-//     const files = req.files;
-//     const image1 =
-//       files.image1 && files.image1.length > 0 ? files.image1[0] : null;
-//     const image2 =
-//       files.image2 && files.image2.length > 0 ? files.image2[0] : null;
-//     const image3 =
-//       files.image3 && files.image3.length > 0 ? files.image3[0] : null;
-//     const image4 =
-//       files.image4 && files.image4.length > 0 ? files.image4[0] : null;
-//     const image5 =
-//       files.image5 && files.image5.length > 0 ? files.image5[0] : null;
-
-//     const images = [image1, image2, image3, image4, image5].filter(Boolean);
-
-//     if (images.length < 1) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'You must upload at least one image.',
-//       });
-//     }
-
-//     // Upload images to Cloudinary
-//     const imagesUrl = await Promise.all(
-//       images.map(async (item) => {
-//         const result = await cloudinary.uploader.upload(item.path, {
-//           resource_type: 'image',
-//         });
-//         return result.secure_url;
-//       })
-//     );
-
-//     // Parse tags
-//     const parseTags = (input) => {
-//       if (!input) return [];
-//       try {
-//         const parsed = JSON.parse(input);
-//         if (Array.isArray(parsed)) return parsed;
-//         return String(input)
-//           .split(',')
-//           .map((t) => t.trim());
-//       } catch {
-//         return String(input)
-//           .split(',')
-//           .map((t) => t.trim());
-//       }
-//     };
-
-//     // Parse variants
-//     let parsedVariants = [];
-//     if (variants) {
-//       if (typeof variants === 'string') {
-//         try {
-//           parsedVariants = JSON.parse(variants);
-//           if (!Array.isArray(parsedVariants)) {
-//             return res.status(400).json({
-//               success: false,
-//               message: 'Variants must be an array',
-//             });
-//           }
-//         } catch {
-//           return res.status(400).json({
-//             success: false,
-//             message: 'Invalid JSON format for variants',
-//           });
-//         }
-//       } else if (Array.isArray(variants)) {
-//         parsedVariants = variants;
-//       } else {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'Variants must be an array',
-//         });
-//       }
-//     }
-
-//     // Optional: Basic validation of each variant
-//     for (const variant of parsedVariants) {
-//       if (
-//         !variant.color ||
-//         !variant.size ||
-//         typeof variant.stock === 'undefined' ||
-//         typeof variant.preorder === 'undefined'
-//       ) {
-//         return res.status(400).json({
-//           success: false,
-//           message:
-//             'Each variant must have color, size, stock, and preorder fields',
-//         });
-//       }
-//       variant.stock = Number(variant.stock);
-//       variant.preorder =
-//         variant.preorder === true || variant.preorder === 'true';
-//     }
-
-//     const productData = {
-//       title,
-//       description,
-//       category,
-//       price: Number(price),
-//       discount: Number(discount) || 0,
-//       bestseller: bestseller === 'true',
-//       tags: tags ? parseTags(tags) : [],
-//       digitalDownload: digitalDownload === 'true',
-//       image: imagesUrl,
-//       date: Date.now(),
-//       variants: parsedVariants,
-//     };
-
-//     const product = new productModel(productData);
-//     await product.save();
-
-//     const response = {
-//       success: true,
-//       message: 'Product Added Successfully',
-//       product,
-//     };
-
-//     recentSubmissions.set(submissionId, response);
-//     setTimeout(() => {
-//       recentSubmissions.delete(submissionId);
-//     }, 30000);
-
-//     return res.status(201).json(response);
-//   } catch (error) {
-//     console.error('Product creation error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || 'Failed to add product',
-//     });
-//   }
-// };
-
 import { v2 as cloudinary } from 'cloudinary';
 import productModel from '../models/productModel.js';
 import categoryModel from '../models/categoryModel.js';
 import mongoose from 'mongoose';
+import {
+  sendNewProductAlert,
+  sendProductReviewAlert,
+  sendReviewConfirmation,
+} from '../utils/emailService.js';
 
 const recentSubmissions = new Map();
 
@@ -802,6 +372,13 @@ const addProduct = async (req, res) => {
 
       const product = new productModel(productData);
       await product.save();
+      try {
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+        await sendNewProductAlert(product, adminEmail);
+        console.log('New product alert sent to admin');
+      } catch (emailError) {
+        console.error('Error sending new product alert:', emailError);
+      }
 
       // Store successful response to prevent duplicates
       const response = {
@@ -1088,6 +665,16 @@ const updateProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const updateData = { ...req.body };
+    const currentProduct = await productModel.findById(productId);
+    if (!currentProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    const oldPrice = currentProduct.price;
+    const newPrice = updateData.price ? Number(updateData.price) : oldPrice;
 
     // Handle image updates if new files are uploaded
     if (req.files && Object.keys(req.files).length > 0) {
@@ -1232,6 +819,17 @@ const updateProduct = async (req, res) => {
 
       const updatedProduct = await product.save();
 
+      if (newPrice < oldPrice) {
+        try {
+          const { checkPriceDrops } = await import(
+            '../services/priceDropService.js'
+          );
+          await checkPriceDrops(updatedProduct, oldPrice, newPrice);
+        } catch (emailError) {
+          console.error('Error sending price drop notifications:', emailError);
+        }
+      }
+
       return res.json({
         success: true,
         message: 'Product updated successfully',
@@ -1250,6 +848,16 @@ const updateProduct = async (req, res) => {
           success: false,
           message: 'Product not found',
         });
+      }
+      if (newPrice < oldPrice) {
+        try {
+          const { checkPriceDrops } = await import(
+            '../services/priceDropService.js'
+          );
+          await checkPriceDrops(updatedProduct, oldPrice, newPrice);
+        } catch (emailError) {
+          console.error('Error sending price drop notifications:', emailError);
+        }
       }
 
       return res.json({
@@ -1476,6 +1084,23 @@ const addReview = async (req, res) => {
     product.rating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
 
     await product.save();
+
+    try {
+      // Thank customer for review
+      await sendReviewConfirmation(product, req.user.email, req.user.name);
+
+      // Alert admin about new review
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+      await sendProductReviewAlert(product, adminEmail, {
+        customerName: req.user.name,
+        rating: Number(rating),
+        comment: comment || '',
+      });
+
+      console.log('Review notifications sent');
+    } catch (emailError) {
+      console.error('Error sending review notifications:', emailError);
+    }
 
     res.json({ success: true, message: 'Review added successfully' });
   } catch (error) {
@@ -1787,34 +1412,109 @@ const getInventoryStatus = async (req, res) => {
 };
 
 // Add a method to update variant stock
+// const updateVariantStock = async (req, res) => {
+//   try {
+//     const { productId, variantId } = req.params;
+//     const { stock } = req.body;
+
+//     if (stock === undefined || isNaN(Number(stock))) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Valid stock quantity is required' });
+//     }
+
+//     const stockNum = Number(stock);
+
+//     const product = await productModel.findById(productId);
+//     if (!product) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: 'Product not found' });
+//     }
+
+//     if (variantId) {
+//       const variant = product.variants.id(variantId);
+
+//       if (!variant) {
+//         return res
+//           .status(404)
+//           .json({ success: false, message: 'Variant not found' });
+//       }
+
+//       // Update variant stock
+//       variant.stock = stockNum;
+
+//       // Recalculate total product stock
+//       product.stock = product.variants.reduce((total, v) => {
+//         return total + (v.isActive ? v.stock : 0);
+//       }, 0);
+//     } else {
+//       // Update main product stock
+//       product.stock = stockNum;
+//     }
+
+//     await product.save();
+//     const wasOutOfStock = stockNum === 0;
+//     const nowHasStock = stockNum > 0;
+
+//     if (!wasOutOfStock && nowHasStock) {
+//       // Send back-in-stock notifications to interested customers
+//       try {
+//         await notifyBackInStock(product, variantId);
+//       } catch (emailError) {
+//         console.error('Error sending back-in-stock notifications:', emailError);
+//       }
+//     }
+
+//     res.json({
+//       success: true,
+//       message: 'Stock updated successfully',
+//       currentStock: variantId
+//         ? product.variants.id(variantId).stock
+//         : product.stock,
+//       totalProductStock: product.stock,
+//     });
+//   } catch (error) {
+//     console.error('Update variant stock error:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 const updateVariantStock = async (req, res) => {
   try {
     const { productId, variantId } = req.params;
     const { stock } = req.body;
 
     if (stock === undefined || isNaN(Number(stock))) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Valid stock quantity is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Valid stock quantity is required',
+      });
     }
 
     const stockNum = Number(stock);
-
     const product = await productModel.findById(productId);
+
     if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Product not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
     }
+
+    let wasOutOfStock = false;
+    let previousStock = 0;
 
     if (variantId) {
       const variant = product.variants.id(variantId);
-
       if (!variant) {
-        return res
-          .status(404)
-          .json({ success: false, message: 'Variant not found' });
+        return res.status(404).json({
+          success: false,
+          message: 'Variant not found',
+        });
       }
+
+      previousStock = variant.stock;
+      wasOutOfStock = previousStock <= 0;
 
       // Update variant stock
       variant.stock = stockNum;
@@ -1824,11 +1524,27 @@ const updateVariantStock = async (req, res) => {
         return total + (v.isActive ? v.stock : 0);
       }, 0);
     } else {
+      previousStock = product.stock;
+      wasOutOfStock = previousStock <= 0;
+
       // Update main product stock
       product.stock = stockNum;
     }
 
     await product.save();
+
+    // Send back-in-stock notifications if item was out of stock and now has stock
+    if (wasOutOfStock && stockNum > 0) {
+      try {
+        const { notifyBackInStock } = await import(
+          '../services/backInStockService.js'
+        );
+        await notifyBackInStock(product, variantId);
+        console.log('Back-in-stock notifications sent');
+      } catch (emailError) {
+        console.error('Error sending back-in-stock notifications:', emailError);
+      }
+    }
 
     res.json({
       success: true,
@@ -1837,6 +1553,7 @@ const updateVariantStock = async (req, res) => {
         ? product.variants.id(variantId).stock
         : product.stock,
       totalProductStock: product.stock,
+      notificationsSent: wasOutOfStock && stockNum > 0,
     });
   } catch (error) {
     console.error('Update variant stock error:', error);
@@ -2253,6 +1970,78 @@ const getProductsByCategory = async (req, res) => {
   } catch (error) {
     console.error('Get products by category error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const requestBackInStockNotification = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { variantId, email } = req.body;
+
+    // Use logged-in user email if available, otherwise use provided email
+    const notificationEmail = req.user?.email || email;
+    const userId = req.user?._id || null;
+
+    if (!notificationEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required for notifications',
+      });
+    }
+
+    // Verify product exists
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    // Check if item is actually out of stock
+    let isOutOfStock = false;
+
+    if (variantId) {
+      const variant = product.variants.id(variantId);
+      if (!variant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Variant not found',
+        });
+      }
+      isOutOfStock = variant.stock <= 0;
+    } else {
+      isOutOfStock = product.stock <= 0;
+    }
+
+    if (!isOutOfStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'This item is currently in stock',
+      });
+    }
+
+    const { addBackInStockRequest } = await import(
+      '../services/backInStockService.js'
+    );
+    const result = await addBackInStockRequest(
+      notificationEmail,
+      productId,
+      variantId,
+      userId
+    );
+
+    if (result.success) {
+      res.status(201).json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('Request back-in-stock notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process notification request',
+    });
   }
 };
 

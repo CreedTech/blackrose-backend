@@ -1,70 +1,5 @@
 import mongoose from 'mongoose';
 
-// const orderSchema = new mongoose.Schema(
-//   {
-//     userId: {
-//       type: String,
-//       required: true,
-//     },
-//     items: [
-//       {
-//         productId: String,
-//         title: String,
-//         price: Number,
-//         quantity: Number,
-//         image: String,
-//       },
-//     ],
-//     amount: {
-//       type: Number,
-//       required: true,
-//     },
-//     address: {
-//       fullName: String,
-//       address: String,
-//       city: String,
-//       state: String,
-//       zipCode: String,
-//       phone: String,
-//       email: String,
-//     },
-//     status: {
-//       type: String,
-//       required: true,
-//       default: 'Order Placed',
-//     },
-//     paymentMethod: {
-//       type: String,
-//       required: true,
-//     },
-//     payment: {
-//       type: Boolean,
-//       default: false,
-//     },
-//     date: {
-//       type: Number,
-//       required: true,
-//     },
-//     paymentReference: String,
-//     paymentStatus: {
-//       type: String,
-//       enum: ['pending', 'success', 'failed'],
-//       default: 'pending',
-//     },
-//     paymentDetails: Object,
-//     discount: {
-//       code: String,
-//       amount: Number,
-//     },
-//   },
-//   {
-//     timestamps: true,
-//   }
-// );
-
-// const orderModel =
-//   mongoose.models.order || mongoose.model('order', orderSchema);
-
 const orderSchema = new mongoose.Schema(
   {
     userId: {
@@ -108,6 +43,11 @@ const orderSchema = new mongoose.Schema(
 
         // Digital download info
         isDigitalDownload: { type: Boolean, default: false },
+        isPreorder: { type: Boolean, default: false },
+        stockAvailable: { type: Number, default: 0 },
+        preorderQuantity: { type: Number, default: 0 },
+        estimatedDelivery: String,
+        availabilityType: String,
         downloadLinks: [String],
         downloadExpiry: Date,
 
@@ -232,7 +172,7 @@ const orderSchema = new mongoose.Schema(
     // Fulfillment details
     fulfillmentMethod: {
       type: String,
-      enum: ['standard', 'express', 'pickup', 'digital'],
+      enum: ['standard', 'express', 'pickup', 'digital', 'preorder'],
       default: 'standard',
     },
 
@@ -347,11 +287,18 @@ orderSchema.methods.decrementInventory = async function () {
     const product = await Product.findById(item.productId);
     if (!product) continue;
 
-    if (item.variantId) {
-      await product.updateVariantStock(item.variantId, -item.quantity);
-    } else {
-      product.stock -= item.quantity;
-      await product.save();
+    // Only decrement stock for items that are not preorders or have available stock
+    const quantityToDecrement = item.isPreorder
+      ? item.stockAvailable // Only decrement the available stock portion
+      : item.quantity; // Decrement full quantity for regular items
+
+    if (quantityToDecrement > 0) {
+      if (item.variantId) {
+        await product.updateVariantStock(item.variantId, -quantityToDecrement);
+      } else {
+        product.stock -= quantityToDecrement;
+        await product.save();
+      }
     }
   }
 };
@@ -457,6 +404,37 @@ orderSchema.methods.shipOrder = async function (
 
   // Additional actions:
   // 1. Send shipping notification email with tracking info
+
+  return this;
+};
+
+// In your orderModel.js, add this method to the schema
+orderSchema.methods.updateStatus = async function (newStatus, note, updatedBy) {
+  const oldStatus = this.status;
+
+  this.status = newStatus;
+  this.statusHistory.push({
+    status: newStatus,
+    timestamp: new Date(),
+    note: note || `Status changed to ${newStatus}`,
+    updatedBy: updatedBy || 'system',
+  });
+
+  await this.save();
+  if (oldStatus !== newStatus) {
+    try {
+      const { notifyOrderStatusChange } = await import(
+        '../utils/orderNotificationService.js'
+      );
+      const userEmail = this.shippingAddress.email;
+
+      if (userEmail) {
+        await notifyOrderStatusChange(this, oldStatus, userEmail);
+      }
+    } catch (emailError) {
+      console.error('Error sending status update email:', emailError);
+    }
+  }
 
   return this;
 };

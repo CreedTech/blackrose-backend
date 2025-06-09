@@ -49,6 +49,7 @@ import {
   updateVariantStock,
   addProductVariant,
   getProductsByFilters,
+  requestBackInStockNotification,
 } from '../controllers/productController.js';
 import upload from '../middleware/multer.js';
 import adminAuth, { adminOnly } from '../middleware/adminAuth.js';
@@ -118,6 +119,7 @@ productRouter.put(
   adminOnly,
   updateVariantStock
 );
+productRouter.post('/back-in-stock/:productId', requestBackInStockNotification);
 productRouter.get(
   '/inventory/:productId',
   authUser,

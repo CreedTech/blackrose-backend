@@ -5,6 +5,16 @@ import userModel from '../models/userModel.js';
 import webhookModel from '../models/webhookModel.js';
 import transactionModel from '../models/transactionModel.js';
 import productModel from '../models/productModel.js';
+import { notifyPaymentSuccess } from '../utils/orderNotificationService.js';
+import {
+  sendLowStockAlert,
+  sendNewOrderAlert,
+  sendOrderConfirmation,
+  sendOutOfStockAlert,
+  sendPaymentConfirmation,
+  sendPaymentFailedNotification,
+  sendPreorderNotification,
+} from '../utils/emailService.js';
 
 // Initialize Paystack API
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -39,7 +49,7 @@ export const initializePayment = async (req, res) => {
       });
     }
 
-    // Re-validate inventory before payment
+    // Re-validate inventory before payment (UPDATED TO HANDLE PREORDERS)
     for (const item of order.items) {
       const product = await productModel.findById(item.productId);
 
@@ -50,21 +60,41 @@ export const initializePayment = async (req, res) => {
         });
       }
 
+      // Skip stock validation for preorder items
+      if (item.isPreorder) {
+        console.log(
+          `Skipping stock validation for preorder item: ${item.title}`
+        );
+        continue;
+      }
+
+      // Validate stock for non-preorder items
       if (item.variantId) {
         const variant = product.variants.id(item.variantId);
-        if (!variant || !variant.isActive || variant.stock < item.quantity) {
+        if (!variant || !variant.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: `Product variant ${item.title} is no longer available`,
+          });
+        }
+
+        // Only check stock if it's not a preorder
+        if (variant.stock < item.quantity) {
           return res.status(400).json({
             success: false,
             message: `Insufficient stock for ${item.title} (${
-              item.selectedAttributes.color || ''
-            } ${item.selectedAttributes.size || ''})`,
+              item.selectedAttributes?.color || ''
+            } ${item.selectedAttributes?.size || ''})`,
           });
         }
-      } else if (product.stock < item.quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${item.title}`,
-        });
+      } else {
+        // Check main product stock for non-preorder items
+        if (product.stock < item.quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient stock for ${item.title}`,
+          });
+        }
       }
     }
 
@@ -90,6 +120,7 @@ export const initializePayment = async (req, res) => {
           orderId: order._id.toString(),
           userId: user._id.toString(),
           orderNumber: order.orderNumber,
+          hasPreorderItems: order.hasPreorderItems || false, // Include preorder info
           custom_fields: [
             {
               display_name: 'Order Number',
@@ -101,6 +132,15 @@ export const initializePayment = async (req, res) => {
               variable_name: 'customer_name',
               value: user.name,
             },
+            ...(order.hasPreorderItems
+              ? [
+                  {
+                    display_name: 'Order Type',
+                    variable_name: 'order_type',
+                    value: 'Contains Preorder Items',
+                  },
+                ]
+              : []),
           ],
         },
       },
@@ -117,7 +157,9 @@ export const initializePayment = async (req, res) => {
     order.statusHistory.push({
       status: order.status,
       timestamp: new Date(),
-      note: 'Payment initialized',
+      note: order.hasPreorderItems
+        ? 'Payment initialized for order with preorder items'
+        : 'Payment initialized',
       updatedBy: req.user._id,
     });
     await order.save();
@@ -136,8 +178,11 @@ export const initializePayment = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Payment initialized',
+      message: order.hasPreorderItems
+        ? 'Payment initialized for order with preorder items'
+        : 'Payment initialized',
       data: response.data.data,
+      hasPreorderItems: order.hasPreorderItems,
     });
   } catch (error) {
     console.error(
@@ -151,7 +196,6 @@ export const initializePayment = async (req, res) => {
     });
   }
 };
-
 export const verifyPayment = async (req, res) => {
   try {
     const { reference } = req.params;
@@ -199,6 +243,7 @@ export const verifyPayment = async (req, res) => {
 
     // Only update order if still pending (to prevent double updates)
     const order = await orderModel.findById(transaction.orderId);
+    const user = await userModel.findById(transaction.userId);
 
     if (!order) {
       return res.status(404).json({
@@ -225,22 +270,46 @@ export const verifyPayment = async (req, res) => {
 
       await order.save();
 
-      // If payment successful, update inventory and clear cart
-      if (paymentSuccessful) {
-        try {
-          // Update inventory
-          await updateInventory(order);
+      try {
+        const customerEmail = user.email;
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+
+        if (paymentSuccessful) {
+          // Send payment confirmation to customer
+          await sendPaymentConfirmation(order, customerEmail, transaction);
+
+          // Send order confirmation based on type
+          if (order.hasPreorderItems) {
+            await sendPreorderNotification(order, customerEmail);
+          } else {
+            await sendOrderConfirmation(order, customerEmail);
+          }
+
+          // Send new order alert to admin
+          await sendNewOrderAlert(order, adminEmail);
+
+          // Update inventory and check for low stock alerts
+          await updateInventoryWithNotifications(order, adminEmail);
 
           // Clear user's cart
-          await userModel.findByIdAndUpdate(transaction.userId, {
-            cartData: {},
-          });
+          if (user) {
+            user.cartData.clear();
+            await user.save();
+          }
 
-          // Could add here: Send order confirmation email
-        } catch (error) {
-          console.error('Post-payment processing error:', error);
-          // Continue despite error to maintain payment verification
+          console.log('Payment success emails sent successfully');
+        } else {
+          // Send payment failed notification
+          await sendPaymentFailedNotification(
+            order,
+            customerEmail,
+            paymentData
+          );
+          console.log('Payment failed email sent successfully');
         }
+      } catch (emailError) {
+        console.error('Error sending payment emails:', emailError);
+        // Continue with response even if email fails
       }
     }
 
@@ -268,6 +337,93 @@ export const verifyPayment = async (req, res) => {
     });
   }
 };
+async function updateInventoryWithNotifications(order, adminEmail) {
+  const lowStockProducts = [];
+  const outOfStockProducts = [];
+
+  for (const item of order.items) {
+    // Skip inventory updates for preorder items
+    if (item.isPreorder) {
+      console.log(`Skipping inventory update for preorder item: ${item.title}`);
+      continue;
+    }
+
+    const product = await productModel.findById(item.productId);
+    if (!product) continue;
+
+    let updatedProduct = false;
+
+    if (item.variantId) {
+      // Update variant stock
+      const variant = product.variants.id(item.variantId);
+      if (variant) {
+        variant.stock -= item.quantity;
+        updatedProduct = true;
+
+        // Check for low stock or out of stock
+        if (variant.stock === 0) {
+          outOfStockProducts.push({
+            ...product.toObject(),
+            title: `${product.title} (${variant.color || ''} ${
+              variant.size || ''
+            })`.trim(),
+            sku: variant.sku,
+            stock: variant.stock,
+          });
+        } else if (
+          variant.stock <= (variant.inventory?.lowStockThreshold || 5)
+        ) {
+          lowStockProducts.push({
+            ...product.toObject(),
+            title: `${product.title} (${variant.color || ''} ${
+              variant.size || ''
+            })`.trim(),
+            sku: variant.sku,
+            stock: variant.stock,
+            lowStockThreshold: variant.inventory?.lowStockThreshold || 5,
+          });
+        }
+      }
+    } else {
+      // Update main product stock
+      product.stock -= item.quantity;
+      updatedProduct = true;
+
+      // Check for low stock or out of stock
+      if (product.stock === 0) {
+        outOfStockProducts.push(product.toObject());
+      } else if (product.stock <= 5) {
+        lowStockProducts.push({
+          ...product.toObject(),
+          lowStockThreshold: 5,
+        });
+      }
+    }
+
+    if (updatedProduct) {
+      await product.save();
+    }
+  }
+
+  // Send stock alert emails
+  try {
+    for (const product of outOfStockProducts) {
+      await sendOutOfStockAlert(product, adminEmail);
+    }
+
+    for (const product of lowStockProducts) {
+      await sendLowStockAlert(product, adminEmail);
+    }
+
+    if (lowStockProducts.length > 0 || outOfStockProducts.length > 0) {
+      console.log(
+        `Stock alerts sent: ${lowStockProducts.length} low stock, ${outOfStockProducts.length} out of stock`
+      );
+    }
+  } catch (alertError) {
+    console.error('Error sending stock alerts:', alertError);
+  }
+}
 
 async function updateInventory(order) {
   for (const item of order.items) {
@@ -573,10 +729,6 @@ export const checkRefundEligibility = async (req, res) => {
 export const handleCallback = async (req, res) => {
   try {
     const { reference } = req.query;
-
-    // Just redirect to frontend with reference
-    // Let frontend handle verification and status display
-    // This prevents double updates between callback and webhook
     res.redirect(
       `${process.env.FRONTEND_URL}/payment/status?reference=${reference}`
     );
@@ -586,10 +738,8 @@ export const handleCallback = async (req, res) => {
   }
 };
 
-// Handle Webhook
 export const handleWebhook = async (req, res) => {
   try {
-    // Verify webhook signature
     const hash = crypto
       .createHmac('sha512', PAYSTACK_SECRET_KEY)
       .update(JSON.stringify(req.body))
@@ -601,14 +751,12 @@ export const handleWebhook = async (req, res) => {
 
     const event = req.body;
 
-    // Log webhook
     await webhookModel.create({
       event: event.event,
       data: event.data,
       reference: event.data.reference,
     });
 
-    // Process different events
     switch (event.event) {
       case 'charge.success':
         await processSuccessfulPayment(event.data);
@@ -627,16 +775,13 @@ export const handleWebhook = async (req, res) => {
         break;
     }
 
-    // Always return 200 to acknowledge receipt
     res.status(200).send('Webhook received');
   } catch (error) {
     console.error('Webhook error:', error);
-    // Still return 200 to acknowledge receipt
     res.status(200).send('Webhook received with errors');
   }
 };
 
-// Check Payment Status
 export const getPaymentStatus = async (req, res) => {
   try {
     const { reference } = req.params;
@@ -672,7 +817,6 @@ export const getPaymentStatus = async (req, res) => {
   }
 };
 
-// Helper functions for webhook processing
 async function processSuccessfulPayment(data) {
   try {
     const reference = data.reference;
@@ -685,7 +829,6 @@ async function processSuccessfulPayment(data) {
       return;
     }
 
-    // Update transaction
     const transaction = await transactionModel.findOneAndUpdate(
       { reference },
       {
@@ -696,7 +839,7 @@ async function processSuccessfulPayment(data) {
         fees: data.fees
           ? {
               gateway: data.fees,
-              platform: 0, // Calculate your platform fee if needed
+              platform: 0,
               total: data.fees,
             }
           : undefined,
@@ -706,21 +849,19 @@ async function processSuccessfulPayment(data) {
 
     if (!transaction) return;
 
-    // Update order only if still pending
     const order = await orderModel.findOne({
       _id: transaction.orderId,
       paymentStatus: 'pending',
     });
 
     if (!order) return;
+    const user = await userModel.findById(order.userId);
 
-    // Update order status
     order.paymentStatus = 'success';
     order.payment = true;
     order.status = 'confirmed';
     order.paymentDetails = data;
 
-    // Add to status history - this is the timeline update
     order.statusHistory.push({
       status: 'confirmed',
       timestamp: new Date(),
@@ -734,13 +875,34 @@ async function processSuccessfulPayment(data) {
     });
 
     await order.save();
-
-    // Update inventory
     try {
-      await updateInventory(order);
+      const customerEmail = user.email;
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+
+      // Send payment confirmation
+      await sendPaymentConfirmation(order, customerEmail, transaction);
+
+      // Send order confirmation
+      if (order.hasPreorderItems) {
+        await sendPreorderNotification(order, customerEmail);
+      } else {
+        await sendOrderConfirmation(order, customerEmail);
+      }
+
+      // Send admin notification
+      await sendNewOrderAlert(order, adminEmail);
+
+      console.log('Webhook payment success emails sent');
+    } catch (emailError) {
+      console.error('Error sending webhook emails:', emailError);
+    }
+
+    // Update inventory with notifications
+    try {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+      await updateInventoryWithNotifications(order, adminEmail);
     } catch (invError) {
       console.error('Inventory update error:', invError);
-      // Add to status history about inventory issue
       order.statusHistory.push({
         status: order.status,
         timestamp: new Date(),
@@ -750,11 +912,28 @@ async function processSuccessfulPayment(data) {
       });
       await order.save();
     }
+    // try {
+    //   await updateInventory(order);
+    // } catch (invError) {
+    //   console.error('Inventory update error:', invError);
+    //   order.statusHistory.push({
+    //     status: order.status,
+    //     timestamp: new Date(),
+    //     note: 'Inventory update failed - manual check required',
+    //     updatedBy: 'system',
+    //     metadata: { error: invError.message },
+    //   });
+    //   await order.save();
+    // }
 
-    // Clear user's cart
-    await userModel.findByIdAndUpdate(transaction.userId, { cartData: {} });
+    // await userModel.findByIdAndUpdate(transaction.userId, { cartData: {} });
+    // const user = await userModel.findById(order.userId);
+    if (user) {
+      user.cartData.clear();
+      await user.save();
+    }
+    await notifyPaymentSuccess(order, transaction, user.email);
 
-    // Send confirmation email if you have email service
     // await sendOrderConfirmationEmail(order);
   } catch (error) {
     console.error('Error processing successful payment:', error);
@@ -765,7 +944,6 @@ async function processFailedPayment(data) {
   try {
     const reference = data.reference;
 
-    // Update transaction
     const transaction = await transactionModel.findOneAndUpdate(
       { reference },
       {
@@ -779,7 +957,6 @@ async function processFailedPayment(data) {
 
     if (!transaction) return;
 
-    // Update order only if still pending
     const order = await orderModel.findOne({
       _id: transaction.orderId,
       paymentStatus: 'pending',
@@ -787,17 +964,19 @@ async function processFailedPayment(data) {
 
     if (!order) return;
 
-    // Update order status
+    const user = await userModel.findById(order.userId);
+
     order.paymentStatus = 'failed';
     order.payment = false;
     order.status = 'payment_failed';
     order.paymentDetails = data;
 
-    // Add to status history
     order.statusHistory.push({
       status: 'payment_failed',
       timestamp: new Date(),
-      note: `Payment failed: ${data.gateway_response || 'Unknown error'}`,
+      note: `Payment failed via webhook: ${
+        data.gateway_response || 'Unknown error'
+      }`,
       updatedBy: 'system',
       metadata: {
         paymentReference: reference,
@@ -808,7 +987,17 @@ async function processFailedPayment(data) {
 
     await order.save();
 
-    // Restore inventory if items were reserved
+    // Send payment failed notification
+    try {
+      if (user) {
+        await sendPaymentFailedNotification(order, user.email, data);
+        console.log('Payment failed email sent via webhook');
+      }
+    } catch (emailError) {
+      console.error('Error sending payment failed email:', emailError);
+    }
+
+    // Restore inventory if it was reserved
     if (order.inventoryReserved) {
       try {
         await restoreInventory(order);
@@ -834,12 +1023,10 @@ async function processSuccessfulRefund(data) {
   try {
     const { reference, transfer_code, recipient, metadata } = data;
 
-    // Try to find order by metadata first (if Paystack includes it)
     let order;
     if (metadata && metadata.orderId) {
       order = await orderModel.findById(metadata.orderId);
     } else {
-      // Fallback to finding by original payment reference
       const transaction = await transactionModel.findOne({
         gatewayReference: reference,
         type: 'refund',
@@ -854,7 +1041,6 @@ async function processSuccessfulRefund(data) {
       return;
     }
 
-    // Update order refund status
     order.refundStatus = 'completed';
     order.status = 'refunded';
     order.refundDetails = {
@@ -879,7 +1065,6 @@ async function processSuccessfulRefund(data) {
 
     await order.save();
 
-    // Update transaction record if exists
     await transactionModel.findOneAndUpdate(
       { reference: order.paymentDetails.reference },
       {
@@ -897,22 +1082,18 @@ async function processFailedRefund(data) {
   try {
     const { reference } = data;
 
-    // Find the order
     const order = await orderModel.findOne({
       'paymentDetails.reference': reference,
     });
 
     if (!order) return;
 
-    // Update order refund status
     order.refundStatus = 'failed';
     order.refundDetails = {
       ...order.refundDetails,
       failedAt: new Date(),
       failureReason: data.failure_reason || 'Unknown reason',
     };
-
-    // Add to status history
     order.statusHistory.push({
       status: order.status,
       timestamp: new Date(),

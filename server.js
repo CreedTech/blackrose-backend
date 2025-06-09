@@ -15,6 +15,7 @@ import authUser from './middleware/auth.js';
 import { trackUserActivity } from './middleware/activityTracking.js';
 import paymentRouter from './routes/paymentRoute.js';
 import blogRouter from './routes/blogRoutes.js';
+import { startScheduledTasks } from './jobs/scheduledTasks.js';
 
 // App Config
 const app = express();
@@ -64,5 +65,10 @@ app.use('/api/v1/blog', blogRouter);
 app.get('/', (req, res) => {
   res.send('API Working');
 });
+
+if (process.env.NODE_ENV === 'production') {
+  startScheduledTasks();
+}
+
 
 app.listen(port, () => console.log('Server started on PORT : ' + port));

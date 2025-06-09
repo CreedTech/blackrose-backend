@@ -1,153 +1,16 @@
-// import validator from 'validator';
-// import bcrypt from 'bcrypt';
-// import jwt from 'jsonwebtoken';
-// import userModel from '../models/userModel.js';
-// import LoginActivity from '../models/loginActivityModel.js';
-
-// const createToken = (id) => {
-//   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-// };
-
-// const getMe = async (req, res) => {
-//   try {
-//     const user = await userModel.findById(req.user._id).select('-password');
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-//     res.json(user);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// const loginUser = async (req, res) => {
-//   console.log('Request body:', req.body);
-//   try {
-//     // Extract email and password directly from the request body
-//     const { email, password } = req.body;
-//     const isAdmin = req.body.isAdmin === true;
-
-//     const user = await userModel.findOne({ email });
-
-//     if (!user) {
-//       return res.json({ success: false, message: "User doesn't exist" });
-//     }
-
-//     const isMatch = await bcrypt.compare(password, user.password);
-
-//     if (!isMatch) {
-//       return res.json({ success: false, message: 'Invalid credentials' });
-//     }
-
-//     // Admin validation
-//     if (isAdmin && !user.isAdmin) {
-//       return res.json({
-//         success: false,
-//         message: 'You do not have administrator privileges',
-//       });
-//     }
-
-//     const token = createToken(user._id);
-
-//     // Log login activity
-//     await LoginActivity.create({
-//       user: user._id,
-//       action: 'login',
-//       ip: req.ip,
-//       userAgent: req.headers['user-agent'],
-//       loginType: isAdmin ? 'admin' : 'user',
-//     });
-
-//     res.json({
-//       success: true,
-//       token,
-//       user: {
-//         id: user._id,
-//         email: user.email,
-//         isAdmin: user.isAdmin,
-//         // Include other needed user fields
-//       },
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// // Route for user register
-// const registerUser = async (req, res) => {
-//   try {
-//     const { name, email, password } = req.body;
-
-//     // checking user already exists or not
-//     const exists = await userModel.findOne({ email });
-//     if (exists) {
-//       return res.json({ success: false, message: 'User already exists' });
-//     }
-
-//     // validating email format & strong password
-//     if (!validator.isEmail(email)) {
-//       return res.json({
-//         success: false,
-//         message: 'Please enter a valid email',
-//       });
-//     }
-//     if (password.length < 8) {
-//       return res.json({
-//         success: false,
-//         message: 'Please enter a strong password',
-//       });
-//     }
-
-//     // hashing user password
-//     const salt = await bcrypt.genSalt(10);
-//     const hashedPassword = await bcrypt.hash(password, salt);
-
-//     const newUser = new userModel({
-//       name,
-//       email,
-//       password: hashedPassword,
-//     });
-
-//     const user = await newUser.save();
-
-//     const token = createToken(user._id);
-
-//     res.json({ success: true, token });
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// // Route for admin login
-// const adminLogin = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-
-//     if (
-//       email === process.env.ADMIN_EMAIL &&
-//       password === process.env.ADMIN_PASSWORD
-//     ) {
-//       const token = jwt.sign(email + password, process.env.JWT_SECRET);
-//       res.json({ success: true, token });
-//     } else {
-//       res.json({ success: false, message: 'Invalid credentials' });
-//     }
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// export { loginUser, registerUser, adminLogin, getMe };
-
 import validator from 'validator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import userModel from '../models/userModel.js';
 import LoginActivity from '../models/loginActivityModel.js';
 import mongoose from 'mongoose';
+import orderModel from '../models/orderModel.js';
+import {
+  sendPasswordResetEmail,
+  sendPasswordResetSuccess,
+  sendPasswordResetAlert,
+} from '../utils/emailService.js';
+import PasswordReset from '../models/passwordResetModel.js';
 
 const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -155,20 +18,93 @@ const createToken = (id) => {
 
 const getMe = async (req, res) => {
   try {
-    const user = await userModel
-      .findById(req.user._id)
-      .select('-password')
-      .populate('likedPhotos')
-      .populate('collections')
-      .populate('uploadedPhotos')
-      .populate('wishlist.productId')
-      .populate('recentlyViewed.productId');
+    const userId = req.user._id;
+
+    // Run multiple queries in parallel for better performance
+    const [user, orderCount, orderStats, recentOrders] = await Promise.all([
+      // Get user data
+      userModel
+        .findById(userId)
+        .select('-password')
+        .populate('likedPhotos')
+        .populate('collections')
+        .populate('uploadedPhotos')
+        .populate('wishlist.productId')
+        .populate('recentlyViewed.productId'),
+
+      // Get order count
+      orderModel.countDocuments({ userId }),
+
+      // Get order statistics
+      orderModel.aggregate([
+        { $match: { userId: userId } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalSpent: { $sum: '$amount' },
+            pendingOrders: {
+              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] },
+            },
+            processingOrders: {
+              $sum: { $cond: [{ $eq: ['$status', 'processing'] }, 1, 0] },
+            },
+            shippedOrders: {
+              $sum: { $cond: [{ $eq: ['$status', 'shipped'] }, 1, 0] },
+            },
+            deliveredOrders: {
+              $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] },
+            },
+            cancelledOrders: {
+              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] },
+            },
+            averageOrderValue: { $avg: '$amount' },
+          },
+        },
+      ]),
+
+      // Get recent orders
+      orderModel
+        .find({ userId })
+        .sort({ date: -1 })
+        .limit(5)
+        .select('orderNumber status amount date items.productName'),
+    ]);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user);
+
+    // Combine all data
+    const userWithCompleteStats = {
+      ...user.toObject(),
+      orderCount,
+      orderStats: orderStats[0] || {
+        totalOrders: 0,
+        totalSpent: 0,
+        pendingOrders: 0,
+        processingOrders: 0,
+        shippedOrders: 0,
+        deliveredOrders: 0,
+        cancelledOrders: 0,
+        averageOrderValue: 0,
+      },
+      recentOrders,
+      // Additional computed fields
+      completionRate: orderStats[0]
+        ? (
+            (orderStats[0].deliveredOrders / orderStats[0].totalOrders) *
+            100
+          ).toFixed(1)
+        : 0,
+      membershipDuration: Math.floor(
+        (Date.now() - user.createdAt) / (1000 * 60 * 60 * 24)
+      ), // Days since registration
+    };
+
+    res.json(userWithCompleteStats);
   } catch (error) {
+    console.error('Get user error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -287,30 +223,15 @@ const adminLogin = async (req, res) => {
   }
 };
 
-// Cart management methods
-// const addToCart = async (req, res) => {
-//   try {
-//     const { productId, quantity = 1, variantId, selectedAttributes } = req.body;
-//     const user = await userModel.findById(req.user._id);
-
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-
-//     await user.addToCart(productId, quantity, variantId, selectedAttributes);
-
-//     res.json({
-//       success: true,
-//       message: 'Item added to cart',
-//       cartItemCount: user.getCartItemCount(),
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
 const addToCart = async (req, res) => {
   try {
-    const { productId, quantity = 1, variantId, selectedAttributes } = req.body;
+    const {
+      productId,
+      quantity = 1,
+      variantId,
+      selectedAttributes,
+      isPreorder = false,
+    } = req.body;
 
     if (!productId) {
       return res.status(400).json({ message: 'Product ID is required' });
@@ -330,6 +251,13 @@ const addToCart = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Check if product is active
+    if (!product.isActive) {
+      return res
+        .status(400)
+        .json({ message: 'This product is currently unavailable' });
+    }
+
     // Prepare cart key based on product and variant
     const cartKey = variantId ? `${productId}_${variantId}` : productId;
 
@@ -345,6 +273,8 @@ const addToCart = async (req, res) => {
 
     // Check inventory availability
     let inventoryCheck;
+    let availableStock = 0;
+    let allowPreorder = false;
 
     if (variantId) {
       // Find the specific variant
@@ -360,51 +290,161 @@ const addToCart = async (req, res) => {
           .json({ message: 'This product variant is currently unavailable' });
       }
 
-      // Check if requested quantity is available
-      if (variant.stock < newTotalQuantity) {
+      availableStock = variant.stock;
+
+      // For variants: check backorderAllowed OR allow preorder if user explicitly requests it
+      allowPreorder = variant.inventory?.backorderAllowed || isPreorder;
+    } else {
+      // Check main product stock
+      availableStock = product.stock;
+
+      // For main product: allow preorder if user explicitly requests it
+      // OR if the product is specifically set up for preorder/made to order
+      allowPreorder =
+        isPreorder ||
+        product.availabilityType === 'Pre-order' ||
+        product.availabilityType === 'Made to Order';
+    }
+
+    // Stock validation logic
+    if (availableStock >= newTotalQuantity) {
+      // Normal case: enough stock available
+      inventoryCheck = {
+        available: true,
+        type: 'in_stock',
+        message: 'Item available in stock',
+      };
+    } else if (isPreorder && allowPreorder) {
+      // Preorder case: out of stock but preorder allowed
+      const preorderType =
+        product.availabilityType === 'In Stock'
+          ? 'preorder'
+          : product.availabilityType.toLowerCase();
+      inventoryCheck = {
+        available: true,
+        type: 'preorder',
+        message: `Item will be available for ${preorderType} (7-14 days delivery)`,
+        estimatedDelivery: '7-14 days',
+        availabilityType: product.availabilityType,
+      };
+    } else if (availableStock > 0 && availableStock < newTotalQuantity) {
+      // Partial stock available
+      if (isPreorder && allowPreorder) {
+        const preorderType =
+          product.availabilityType === 'In Stock'
+            ? 'preorder'
+            : product.availabilityType.toLowerCase();
+        inventoryCheck = {
+          available: true,
+          type: 'partial_preorder',
+          message: `${availableStock} items in stock, ${
+            newTotalQuantity - availableStock
+          } items as ${preorderType}`,
+          inStock: availableStock,
+          preorderQuantity: newTotalQuantity - availableStock,
+          availabilityType: product.availabilityType,
+        };
+      } else {
         return res.status(400).json({
-          message: `Only ${variant.stock} items available. You already have ${currentQuantity} in your cart.`,
-          availableStock: variant.stock,
+          message: `Only ${availableStock} items available. You already have ${currentQuantity} in your cart.`,
+          availableStock: availableStock,
           currentCartQuantity: currentQuantity,
+          canPreorder: true, // Always allow preorder when out of stock
+          availabilityType: product.availabilityType,
         });
       }
     } else {
-      // Check main product stock
-      if (product.stock < newTotalQuantity) {
+      // No stock available
+      if (isPreorder && allowPreorder) {
+        const preorderType =
+          product.availabilityType === 'In Stock'
+            ? 'preorder'
+            : product.availabilityType.toLowerCase();
+        inventoryCheck = {
+          available: true,
+          type: 'preorder',
+          message: `Item out of stock - available for ${preorderType}`,
+          estimatedDelivery: getEstimatedDelivery(product.availabilityType),
+          availabilityType: product.availabilityType,
+        };
+      } else {
         return res.status(400).json({
-          message: `Only ${product.stock} items available. You already have ${currentQuantity} in your cart.`,
-          availableStock: product.stock,
+          message: 'Item is currently out of stock',
+          availableStock: 0,
           currentCartQuantity: currentQuantity,
+          canPreorder: true, // Always allow preorder when out of stock
+          availabilityType: product.availabilityType,
         });
       }
     }
 
-    // Add to cart with product details for easier display
+    // Calculate pricing
+    let unitPrice = variantId
+      ? product.variants.id(variantId).finalPrice ||
+        product.variants.id(variantId).price
+      : product.finalPrice || product.price;
+
+    // Add to cart with product details
     if (user.cartData.has(cartKey)) {
       // Update existing item
-      user.cartData.get(cartKey).quantity = newTotalQuantity;
-      user.cartData.get(cartKey).updatedAt = new Date();
+      const existingCartItem = user.cartData.get(cartKey);
+      existingCartItem.quantity = newTotalQuantity;
+      existingCartItem.updatedAt = new Date();
+
+      // Update preorder status if applicable
+      if (inventoryCheck.type.includes('preorder')) {
+        existingCartItem.isPreorder = true;
+        existingCartItem.estimatedDelivery = inventoryCheck.estimatedDelivery;
+        existingCartItem.availabilityType = product.availabilityType;
+      }
     } else {
       // Add new item with product details
-      user.cartData.set(cartKey, {
+      const cartItem = {
         productId,
         variantId,
         quantity: quantityNum,
         selectedAttributes: selectedAttributes || {},
         productName: product.title,
         productImage: product.images[0],
-        unitPrice: variantId
-          ? product.variants.id(variantId).price
-          : product.price,
+        unitPrice: unitPrice,
         addedAt: new Date(),
-      });
+        isPreorder: inventoryCheck.type.includes('preorder'),
+        availabilityType: product.availabilityType,
+      };
+
+      // Add preorder specific data
+      if (inventoryCheck.type.includes('preorder')) {
+        cartItem.estimatedDelivery =
+          inventoryCheck.estimatedDelivery ||
+          getEstimatedDelivery(product.availabilityType);
+        cartItem.preorderDate = new Date();
+      }
+
+      user.cartData.set(cartKey, cartItem);
     }
 
     await user.save();
 
+    // Prepare response message
+    let responseMessage = 'Item added to cart';
+    if (inventoryCheck.type === 'preorder') {
+      const preorderType =
+        product.availabilityType === 'In Stock'
+          ? 'preorder'
+          : product.availabilityType.toLowerCase();
+      responseMessage = `Item added to cart as ${preorderType}`;
+    } else if (inventoryCheck.type === 'partial_preorder') {
+      const preorderType =
+        product.availabilityType === 'In Stock'
+          ? 'preorder'
+          : product.availabilityType.toLowerCase();
+      responseMessage = `Item added to cart (partial ${preorderType})`;
+    }
+
     res.json({
       success: true,
-      message: 'Item added to cart',
+      message: responseMessage,
+      inventoryStatus: inventoryCheck,
       cartItemCount: user.getCartItemCount(),
       cartItem: user.cartData.get(cartKey),
     });
@@ -414,28 +454,22 @@ const addToCart = async (req, res) => {
   }
 };
 
-// const getCart = async (req, res) => {
-//   try {
-//     const user = await userModel.findById(req.user._id);
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
+// Updated helper function
+function getEstimatedDelivery(availabilityType) {
+  switch (availabilityType) {
+    case 'Pre-order':
+      return '7-14 days';
+    case 'Made to Order':
+      return '14-21 days';
+    case 'Limited Edition':
+      return '3-7 days';
+    case 'In Stock':
+      return '7-14 days'; // Default preorder delivery for normally in-stock items
+    default:
+      return '7-14 days';
+  }
+}
 
-//     const cartItems = Array.from(user.cartData.entries()).map(
-//       ([key, item]) => ({
-//         key,
-//         ...item,
-//       })
-//     );
-
-//     res.json({
-//       cartItems,
-//       totalItems: user.getCartItemCount(),
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
 const getCart = async (req, res) => {
   try {
     const user = await userModel.findById(req.user._id);
@@ -494,6 +528,11 @@ const getCart = async (req, res) => {
           variantId: item.variantId,
           quantity: item.quantity,
           selectedAttributes: item.selectedAttributes || {},
+          // ADD PREORDER INFORMATION:
+          isPreorder: item.isPreorder || false,
+          estimatedDelivery: item.estimatedDelivery,
+          availabilityType: item.availabilityType,
+          preorderDate: item.preorderDate,
           product: {
             title: product.title,
             image: productImage,
@@ -523,35 +562,12 @@ const getCart = async (req, res) => {
       cartItems,
       totalItems: user.getCartItemCount(),
       subtotal,
-      // You can add more calculated values here like shipping, tax, etc.
     });
   } catch (error) {
     console.error('Get cart error:', error);
     res.status(500).json({ message: error.message });
   }
 };
-
-// const removeFromCart = async (req, res) => {
-//   try {
-//     const { cartKey } = req.body;
-//     const user = await userModel.findById(req.user._id);
-
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-
-//     user.cartData.delete(cartKey);
-//     await user.save();
-
-//     res.json({
-//       success: true,
-//       message: 'Item removed from cart',
-//       cartItemCount: user.getCartItemCount(),
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
 
 const removeFromCart = async (req, res) => {
   try {
@@ -571,16 +587,63 @@ const removeFromCart = async (req, res) => {
       return res.status(404).json({ message: 'Item not found in cart' });
     }
 
+    const cartItem = user.cartData.get(cartKey);
+
+    // Release reserved inventory if applicable
+    if (!cartItem.isPreorder) {
+      const { productId, variantId, quantity } = cartItem;
+
+      try {
+        const Product = mongoose.model('product');
+        const product = await Product.findById(productId);
+
+        if (product && variantId) {
+          const variant = product.variants.id(variantId);
+          if (variant && variant.inventory?.managed) {
+            variant.inventory.reservedQuantity = Math.max(
+              0,
+              variant.inventory.reservedQuantity - quantity
+            );
+            await product.save();
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to release reserved inventory:', error);
+        // Don't fail the cart removal if inventory update fails
+      }
+    }
+
     // Remove item
     user.cartData.delete(cartKey);
     await user.save();
 
-    // Calculate remaining cart totals
-    const cartItems = Array.from(user.cartData.values());
-    const subtotal = cartItems.reduce((sum, item) => {
-      // This is simplified - in a real app you'd fetch current prices
-      return sum + (item.unitPrice || 0) * item.quantity;
-    }, 0);
+    // Calculate remaining cart totals with current prices
+    const Product = mongoose.model('product');
+    let subtotal = 0;
+
+    for (const [key, item] of user.cartData.entries()) {
+      try {
+        const product = await Product.findById(item.productId);
+        if (product) {
+          let currentPrice;
+
+          if (item.variantId) {
+            const variant = product.variants.id(item.variantId);
+            currentPrice = variant
+              ? variant.finalPrice || variant.price
+              : product.finalPrice || product.price;
+          } else {
+            currentPrice = product.finalPrice || product.price;
+          }
+
+          subtotal += currentPrice * item.quantity;
+        }
+      } catch (error) {
+        console.warn(`Failed to calculate price for cart item ${key}:`, error);
+        // Fallback to stored price
+        subtotal += (item.unitPrice || 0) * item.quantity;
+      }
+    }
 
     res.json({
       success: true,
@@ -616,6 +679,8 @@ const updateCartQuantity = async (req, res) => {
       return res.status(404).json({ message: 'Item not found in cart' });
     }
 
+    const cartItem = user.cartData.get(cartKey);
+
     // Handle removal if quantity is 0 or negative
     if (quantityNum <= 0) {
       user.cartData.delete(cartKey);
@@ -628,9 +693,8 @@ const updateCartQuantity = async (req, res) => {
       });
     }
 
-    // Check inventory before updating
-    const cartItem = user.cartData.get(cartKey);
-    const { productId, variantId } = cartItem;
+    // Check inventory before updating (unless it's a preorder item)
+    const { productId, variantId, isPreorder } = cartItem;
 
     const Product = mongoose.model('product');
     const product = await Product.findById(productId);
@@ -644,6 +708,7 @@ const updateCartQuantity = async (req, res) => {
     }
 
     let availableStock;
+    let allowPreorder = false;
 
     if (variantId) {
       const variant = product.variants.id(variantId);
@@ -663,21 +728,55 @@ const updateCartQuantity = async (req, res) => {
       }
 
       availableStock = variant.stock;
+      allowPreorder = variant.inventory?.backorderAllowed || false;
     } else {
       availableStock = product.stock;
+      allowPreorder =
+        product.availabilityType === 'Pre-order' ||
+        product.availabilityType === 'Made to Order';
     }
 
-    // Check if requested quantity is available
-    if (quantityNum > availableStock) {
+    // Stock validation - different logic for preorder vs regular items
+    if (!isPreorder && quantityNum > availableStock) {
       return res.status(400).json({
         message: `Only ${availableStock} items available`,
         availableStock,
+        canPreorder: allowPreorder,
+        currentIsPreorder: isPreorder,
+      });
+    }
+
+    // For preorder items, we allow any quantity (within reason)
+    if (isPreorder && quantityNum > 100) {
+      // Reasonable limit for preorders
+      return res.status(400).json({
+        message: 'Quantity too large for preorder',
+        maxQuantity: 100,
       });
     }
 
     // Update quantity
+    const oldQuantity = cartItem.quantity;
     user.cartData.get(cartKey).quantity = quantityNum;
     user.cartData.get(cartKey).updatedAt = new Date();
+
+    // Update inventory reservation for non-preorder items
+    if (!isPreorder && variantId) {
+      try {
+        const variant = product.variants.id(variantId);
+        if (variant && variant.inventory?.managed) {
+          const quantityDiff = quantityNum - oldQuantity;
+          variant.inventory.reservedQuantity = Math.max(
+            0,
+            variant.inventory.reservedQuantity + quantityDiff
+          );
+          await product.save();
+        }
+      } catch (error) {
+        console.warn('Failed to update reserved inventory:', error);
+        // Continue with cart update even if inventory update fails
+      }
+    }
 
     await user.save();
 
@@ -696,35 +795,52 @@ const updateCartQuantity = async (req, res) => {
   }
 };
 
-// const updateCartQuantity = async (req, res) => {
-//   try {
-//     const { cartKey, quantity } = req.body;
-//     const user = await userModel.findById(req.user._id);
+const clearCart = async (req, res) => {
+  try {
+    const user = await userModel.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
+    // Release all reserved inventory for non-preorder items
+    const Product = mongoose.model('product');
 
-//     if (user.cartData.has(cartKey)) {
-//       if (quantity <= 0) {
-//         user.cartData.delete(cartKey);
-//       } else {
-//         user.cartData.get(cartKey).quantity = quantity;
-//       }
-//       await user.save();
-//     }
+    for (const [cartKey, cartItem] of user.cartData.entries()) {
+      if (!cartItem.isPreorder && cartItem.variantId) {
+        try {
+          const product = await Product.findById(cartItem.productId);
+          if (product) {
+            const variant = product.variants.id(cartItem.variantId);
+            if (variant && variant.inventory?.managed) {
+              variant.inventory.reservedQuantity = Math.max(
+                0,
+                variant.inventory.reservedQuantity - cartItem.quantity
+              );
+              await product.save();
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to release inventory for ${cartKey}:`, error);
+        }
+      }
+    }
 
-//     res.json({
-//       success: true,
-//       message: 'Cart updated',
-//       cartItemCount: user.getCartItemCount(),
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
+    // Clear cart
+    user.cartData.clear();
+    await user.save();
 
-// Wishlist management
+    res.json({
+      success: true,
+      message: 'Cart cleared',
+      cartItemCount: 0,
+      subtotal: 0,
+    });
+  } catch (error) {
+    console.error('Clear cart error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const addToWishlist = async (req, res) => {
   try {
     const { productId, variantId, selectedAttributes } = req.body;
@@ -853,15 +969,36 @@ const deleteAddress = async (req, res) => {
     const user = await userModel.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
     }
 
-    user.addresses.id(addressId).remove();
+    // Check if address exists
+    const addressExists = user.addresses.id(addressId);
+    if (!addressExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Address not found',
+      });
+    }
+
+    // Remove the address using pull()
+    user.addresses.pull(addressId);
     await user.save();
 
-    res.json({ success: true, message: 'Address deleted successfully' });
+    res.json({
+      success: true,
+      message: 'Address deleted successfully',
+      addressCount: user.addresses.length,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Delete address error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -952,6 +1089,511 @@ const unlikePhoto = async (req, res) => {
     res.json({ success: true, message: 'Photo unliked' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, phone, dateOfBirth, gender, bio, preferences } = req.body;
+
+    // Find user
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Validate inputs
+    if (name && (name.length < 2 || name.length > 50)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be between 2 and 50 characters',
+      });
+    }
+
+    if (phone && !validator.isMobilePhone(phone, 'any')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid phone number',
+      });
+    }
+
+    if (dateOfBirth) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+
+      if (age < 13 || age > 120) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a valid date of birth',
+        });
+      }
+    }
+
+    if (bio && bio.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bio must be less than 500 characters',
+      });
+    }
+
+    if (
+      gender &&
+      !['male', 'female', 'other', 'prefer-not-to-say'].includes(gender)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a valid gender option',
+      });
+    }
+
+    // Update user fields
+    const updateData = {};
+
+    if (name) updateData.name = name.trim();
+    if (phone) updateData.phone = phone.trim();
+    if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
+    if (gender) updateData.gender = gender;
+    if (bio !== undefined) updateData.bio = bio.trim();
+
+    // Update preferences if provided
+    if (preferences) {
+      updateData.preferences = {
+        ...user.preferences,
+        ...preferences,
+      };
+    }
+
+    // Update user
+    const updatedUser = await userModel
+      .findByIdAndUpdate(userId, updateData, { new: true, runValidators: true })
+      .select('-password');
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: error.message,
+    });
+  }
+};
+
+// Change password
+// export const changePassword = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const { currentPassword, newPassword } = req.body;
+
+//     // Validate inputs
+//     if (!currentPassword || !newPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Current password and new password are required',
+//       });
+//     }
+
+//     if (newPassword.length < 6) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'New password must be at least 6 characters long',
+//       });
+//     }
+
+//     // Find user
+//     const user = await userModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'User not found',
+//       });
+//     }
+
+//     // Verify current password
+//     const isValidPassword = await bcrypt.compare(
+//       currentPassword,
+//       user.password
+//     );
+//     if (!isValidPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Current password is incorrect',
+//       });
+//     }
+
+//     // Hash new password
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+//     // Update password
+//     await userModel.findByIdAndUpdate(userId, {
+//       password: hashedPassword,
+//     });
+
+//     res.json({
+//       success: true,
+//       message: 'Password changed successfully',
+//     });
+//   } catch (error) {
+//     console.error('Change password error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to change password',
+//       error: error.message,
+//     });
+//   }
+// };
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !validator.isEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address',
+      });
+    }
+
+    // Check if user exists
+    const user = await userModel.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return res.json({
+        success: true,
+        message:
+          'If an account with that email exists, we have sent a password reset link',
+      });
+    }
+
+    // Check for recent reset requests (rate limiting)
+    const recentRequest = await PasswordReset.findOne({
+      email: email.toLowerCase(),
+      createdAt: { $gt: new Date(Date.now() - 5 * 60 * 1000) }, // 5 minutes
+      used: false,
+    });
+
+    if (recentRequest) {
+      return res.status(429).json({
+        success: false,
+        message:
+          'Password reset already requested. Please check your email or wait 5 minutes before trying again.',
+      });
+    }
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Save reset request
+    await PasswordReset.create({
+      userId: user._id,
+      email: email.toLowerCase(),
+      token: hashedToken,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
+
+    // Create reset URL
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    // Send emails
+    try {
+      // Send reset email to user
+      await sendPasswordResetEmail(user, resetToken, resetUrl);
+
+      // Send security alert (optional - some services do this)
+      await sendPasswordResetAlert(
+        user,
+        req.ip || req.connection.remoteAddress,
+        req.headers['user-agent'],
+        new Date()
+      );
+
+      console.log(`Password reset email sent to ${email}`);
+    } catch (emailError) {
+      console.error('Error sending password reset email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.json({
+      success: true,
+      message:
+        'If an account with that email exists, we have sent a password reset link',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while processing your request',
+    });
+  }
+};
+
+// Reset password with token
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required',
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match',
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+
+    // Hash the token to match stored version
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find valid reset request
+    const resetRequest = await PasswordReset.findOne({
+      token: hashedToken,
+      used: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!resetRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token',
+      });
+    }
+
+    // Get user
+    const user = await userModel.findById(resetRequest.userId);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password
+    user.password = hashedPassword;
+    await user.save();
+
+    // Mark reset request as used
+    resetRequest.used = true;
+    await resetRequest.save();
+
+    // Invalidate all other pending reset requests for this user
+    await PasswordReset.updateMany(
+      {
+        userId: user._id,
+        used: false,
+        _id: { $ne: resetRequest._id },
+      },
+      { used: true }
+    );
+
+    // Log the password reset activity
+    try {
+      await LoginActivity.create({
+        user: user._id,
+        action: 'password_reset',
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        loginType: 'password_reset',
+      });
+    } catch (logError) {
+      console.error('Error logging password reset activity:', logError);
+    }
+
+    // Send confirmation email
+    try {
+      await sendPasswordResetSuccess(user);
+      console.log(`Password reset confirmation sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Error sending password reset confirmation:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message:
+        'Password has been reset successfully. You can now login with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while resetting your password',
+    });
+  }
+};
+
+// Verify reset token (for frontend validation)
+export const verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token is required',
+      });
+    }
+
+    // Hash the token to match stored version
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find valid reset request
+    const resetRequest = await PasswordReset.findOne({
+      token: hashedToken,
+      used: false,
+      expiresAt: { $gt: new Date() },
+    }).populate('userId', 'name email');
+
+    if (!resetRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Token is valid',
+      user: {
+        name: resetRequest.userId.name,
+        email: resetRequest.userId.email,
+      },
+    });
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while verifying the token',
+    });
+  }
+};
+
+// Change password for logged-in users
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user._id;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required',
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New passwords do not match',
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long',
+      });
+    }
+
+    // Get user with password
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect',
+      });
+    }
+
+    // Check if new password is same as current
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password cannot be the same as current password',
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    // Log the activity
+    try {
+      await LoginActivity.create({
+        user: user._id,
+        action: 'password_change',
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        loginType: 'password_change',
+      });
+    } catch (logError) {
+      console.error('Error logging password change activity:', logError);
+    }
+
+    // Send confirmation email
+    try {
+      await sendPasswordResetSuccess(user);
+    } catch (emailError) {
+      console.error('Error sending password change confirmation:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while changing your password',
+    });
   }
 };
 

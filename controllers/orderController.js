@@ -3,6 +3,12 @@ import orderModel from '../models/orderModel.js';
 import productModel from '../models/productModel.js';
 import transactionModel from '../models/transactionModel.js';
 import userModel from '../models/userModel.js';
+import {
+  sendOrderConfirmation,
+  sendNewOrderAlert,
+  sendPreorderNotification,
+  sendPaymentConfirmation,
+} from '../utils/emailService.js';
 
 export const createOrder = async (req, res) => {
   try {
@@ -33,10 +39,11 @@ export const createOrder = async (req, res) => {
     // Validate inventory and get current product data
     const validatedItems = [];
     let subtotal = 0;
+    let hasPreorderItems = false;
 
     // Process each item to check inventory and get current pricing
     for (const item of items) {
-      const { productId, variantId, quantity } = item;
+      const { productId, variantId, quantity, isPreorder = false } = item;
 
       // Find product
       const product = await productModel.findById(productId);
@@ -48,7 +55,7 @@ export const createOrder = async (req, res) => {
         });
       }
 
-      let finalPrice, currentStock, sku, selectedAttributes, image;
+      let finalPrice, currentStock, sku, selectedAttributes, image, itemType;
 
       // Check variant if specified
       if (variantId) {
@@ -61,8 +68,19 @@ export const createOrder = async (req, res) => {
           });
         }
 
-        // Check inventory
-        if (variant.stock < quantity) {
+        // Check inventory for variants
+        if (variant.stock >= quantity) {
+          // Sufficient stock available
+          itemType = 'in_stock';
+        } else if (
+          isPreorder &&
+          (variant.inventory?.backorderAllowed || isPreorder)
+        ) {
+          // Not enough stock but preorder is allowed
+          itemType = 'preorder';
+          hasPreorderItems = true;
+        } else {
+          // Not enough stock and no preorder
           return res.status(400).json({
             success: false,
             message: `Insufficient stock for ${product.title} (${
@@ -70,6 +88,7 @@ export const createOrder = async (req, res) => {
             } ${variant.size || ''})`,
             availableStock: variant.stock,
             requestedQuantity: quantity,
+            canPreorder: true,
             invalidItem: item,
           });
         }
@@ -92,12 +111,21 @@ export const createOrder = async (req, res) => {
             : product.images[0];
       } else {
         // Check main product inventory
-        if (product.stock < quantity) {
+        if (product.stock >= quantity) {
+          // Sufficient stock available
+          itemType = 'in_stock';
+        } else if (isPreorder) {
+          // Not enough stock but preorder is allowed
+          itemType = 'preorder';
+          hasPreorderItems = true;
+        } else {
+          // Not enough stock and no preorder
           return res.status(400).json({
             success: false,
             message: `Insufficient stock for ${product.title}`,
             availableStock: product.stock,
             requestedQuantity: quantity,
+            canPreorder: true,
             invalidItem: item,
           });
         }
@@ -130,6 +158,16 @@ export const createOrder = async (req, res) => {
         image,
         isDigitalDownload: product.digitalDownload || false,
         itemStatus: 'pending',
+        // Add preorder information
+        isPreorder: itemType === 'preorder',
+        stockAvailable: Math.min(currentStock, quantity),
+        preorderQuantity:
+          itemType === 'preorder' ? Math.max(0, quantity - currentStock) : 0,
+        estimatedDelivery:
+          itemType === 'preorder'
+            ? getEstimatedDelivery(product.availabilityType)
+            : null,
+        availabilityType: product.availabilityType,
       });
     }
 
@@ -161,6 +199,29 @@ export const createOrder = async (req, res) => {
     // Generate unique order number
     const orderNumber = generateOrderNumber();
 
+    // Determine order status based on preorder items
+    const initialStatus = hasPreorderItems ? 'pending' : 'pending';
+    const statusNote = hasPreorderItems
+      ? 'Order created with preorder items'
+      : 'Order created';
+
+    // Calculate estimated delivery date considering preorder items
+    let estimatedDeliveryDate = getEstimatedDeliveryDate(shippingMethod);
+
+    if (hasPreorderItems) {
+      // Add extra time for preorder items (ensure we have a valid Date object)
+      if (
+        estimatedDeliveryDate instanceof Date &&
+        !isNaN(estimatedDeliveryDate)
+      ) {
+        estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 7); // Add 7 days for preorder processing
+      } else {
+        // Fallback: create a new date with preorder processing time
+        estimatedDeliveryDate = new Date();
+        estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 14); // 14 days for preorder
+      }
+    }
+
     // Create new order
     const order = new orderModel({
       userId: req.user._id,
@@ -187,16 +248,20 @@ export const createOrder = async (req, res) => {
       amount: totalAmount,
       shippingAddress,
       billingAddress: finalBillingAddress,
-      status: 'pending',
+      status: initialStatus,
       paymentMethod,
       paymentStatus: 'pending',
       customerNotes: notes,
       date: Date.now(),
+      estimatedDeliveryDate,
+      // Add preorder-specific fields
+      hasPreorderItems,
+      fulfillmentMethod: hasPreorderItems ? 'preorder' : 'standard',
       statusHistory: [
         {
-          status: 'pending',
+          status: initialStatus,
           timestamp: new Date(),
-          note: 'Order created',
+          note: statusNote,
           updatedBy: 'system',
         },
       ],
@@ -205,12 +270,53 @@ export const createOrder = async (req, res) => {
     // Save order to database
     const savedOrder = await order.save();
 
-    // Return the created order
-    res.status(201).json({
+    // Send email notifications
+    try {
+      // Send order confirmation to customer
+      const customerEmail = shippingAddress.email || req.user.email;
+
+      if (hasPreorderItems) {
+        await sendPreorderNotification(savedOrder, customerEmail);
+      } else {
+        await sendOrderConfirmation(savedOrder, customerEmail);
+      }
+
+      // Send new order alert to admin
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+      await sendNewOrderAlert(savedOrder, adminEmail);
+
+      console.log('Order confirmation emails sent successfully');
+    } catch (emailError) {
+      console.error('Error sending order emails:', emailError);
+      // Don't fail the order creation if email fails
+    }
+
+    // Prepare response with preorder information
+    const response = {
       success: true,
-      message: 'Order created successfully',
+      message: hasPreorderItems
+        ? 'Order created successfully with preorder items'
+        : 'Order created successfully',
       order: savedOrder,
-    });
+      hasPreorderItems,
+    };
+
+    if (hasPreorderItems) {
+      response.preorderInfo = {
+        message:
+          'Some items in your order are preorders and will require additional processing time',
+        estimatedDelivery: estimatedDeliveryDate,
+        preorderItems: validatedItems
+          .filter((item) => item.isPreorder)
+          .map((item) => ({
+            title: item.title,
+            quantity: item.preorderQuantity,
+            estimatedDelivery: item.estimatedDelivery,
+          })),
+      };
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Order creation error:', error);
     res.status(500).json({
@@ -221,10 +327,23 @@ export const createOrder = async (req, res) => {
   }
 };
 
-// Helper function to calculate shipping cost
+// Helper function for estimated delivery based on availability type
+function getEstimatedDelivery(availabilityType) {
+  switch (availabilityType) {
+    case 'Pre-order':
+      return '7-14 days';
+    case 'Made to Order':
+      return '14-21 days';
+    case 'Limited Edition':
+      return '3-7 days';
+    case 'In Stock':
+      return '7-14 days'; // For preorder of normally in-stock items
+    default:
+      return '7-14 days';
+  }
+}
+
 async function calculateShippingCost(items, shippingMethod, shippingAddress) {
-  // Basic shipping cost calculation
-  // You could implement more complex logic based on weight, dimensions, location, etc.
   let baseCost = 0;
 
   switch (shippingMethod) {
@@ -252,27 +371,24 @@ async function calculateShippingCost(items, shippingMethod, shippingAddress) {
 // Helper function to generate estimated delivery date
 function getEstimatedDeliveryDate(shippingMethod) {
   const today = new Date();
-  let days = 0;
+  let deliveryDays;
 
   switch (shippingMethod) {
     case 'express':
-      days = 2;
-      break;
-    case 'standard':
-      days = 5;
-      break;
-    case 'economy':
-      days = 10;
+      deliveryDays = 2;
       break;
     case 'pickup':
-      days = 1;
+      deliveryDays = 1;
       break;
+    case 'standard':
     default:
-      days = 5;
+      deliveryDays = 5;
+      break;
   }
 
-  today.setDate(today.getDate() + days);
-  return `${days} days (${today.toLocaleDateString()})`;
+  const deliveryDate = new Date(today);
+  deliveryDate.setDate(today.getDate() + deliveryDays);
+  return deliveryDate;
 }
 
 // Helper function to generate unique order number
@@ -444,26 +560,66 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
-// Helper function to restore inventory after cancellation
 async function restoreInventory(order) {
+  let restoredCount = 0;
+  let skippedCount = 0;
+
   for (const item of order.items) {
     try {
-      const product = await productModel.findById(item.productId);
-
-      if (!product) continue;
-
-      if (item.variantId) {
-        // Update variant stock
-        const variant = product.variants.id(item.variantId);
-        if (variant) {
-          variant.stock += item.quantity;
-        }
-      } else {
-        // Update main product stock
-        product.stock += item.quantity;
+      // Skip inventory restoration for preorder items
+      if (item.isPreorder) {
+        console.log(
+          `Skipping inventory restoration for preorder item: ${item.title} (${item.quantity} units)`
+        );
+        skippedCount++;
+        continue;
       }
 
-      await product.save();
+      const product = await productModel.findById(item.productId);
+
+      if (!product) {
+        console.warn(
+          `Product not found for inventory restoration: ${item.productId}`
+        );
+        continue;
+      }
+
+      let restored = false;
+
+      if (item.variantId) {
+        // Update variant stock for non-preorder items only
+        const variant = product.variants.id(item.variantId);
+        if (variant) {
+          const oldStock = variant.stock;
+          variant.stock += item.quantity;
+
+          // Also update reserved quantity if using inventory management
+          if (variant.inventory?.managed) {
+            variant.inventory.reservedQuantity = Math.max(
+              0,
+              variant.inventory.reservedQuantity - item.quantity
+            );
+          }
+
+          console.log(
+            `Variant ${item.variantId}: Stock restored from ${oldStock} to ${variant.stock}`
+          );
+          restored = true;
+        }
+      } else {
+        // Update main product stock for non-preorder items only
+        const oldStock = product.stock;
+        product.stock += item.quantity;
+        console.log(
+          `Product ${item.productId}: Stock restored from ${oldStock} to ${product.stock}`
+        );
+        restored = true;
+      }
+
+      if (restored) {
+        await product.save();
+        restoredCount++;
+      }
     } catch (error) {
       console.error(
         `Error restoring inventory for product ${item.productId}:`,
@@ -472,4 +628,8 @@ async function restoreInventory(order) {
       // Continue with the next item
     }
   }
+
+  console.log(
+    `Inventory restoration complete: ${restoredCount} items restored, ${skippedCount} preorder items skipped`
+  );
 }

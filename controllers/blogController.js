@@ -201,6 +201,14 @@ export const createPost = async (req, res) => {
       featuredImage,
     });
 
+    // if (req.body.status === 'published') {
+    //   try {
+    //     const adminEmail = process.env.ADMIN_EMAIL || 'admin@dblackrose.com';
+    //     await sendNewBlogPostAlert(newPost, adminEmail);
+    //   } catch (emailError) {
+    //     console.error('Error sending blog post alert:', emailError);
+    //   }
+    // }
     res.status(201).json({
       status: 'success',
       data: {

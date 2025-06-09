@@ -1,58 +1,19 @@
 import mongoose from 'mongoose';
 
-// const userSchema = new mongoose.Schema(
-//   {
-//     name: { type: String, required: true },
-//     email: { type: String, required: true, unique: true },
-//     password: { type: String, required: true },
-//     isAdmin: { type: Boolean, default: false },
-//     likedPhotos: [
-//       {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Image',
-//       },
-//     ],
-//     collections: [
-//       {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Collection',
-//       },
-//     ],
-//     // Statistics
-//     uploadedPhotos: [
-//       {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Image',
-//       },
-//     ],
-//     totalViews: {
-//       type: Number,
-//       default: 0,
-//     },
-//     totalLikes: {
-//       type: Number,
-//       default: 0,
-//     },
-//     cartData: { type: Object, default: {} },
-//     createdAt: {
-//       type: Date,
-//       default: Date.now,
-//     },
-//   },
-//   { minimize: false },
-//   {
-//     timestamps: true,
-//   }
-// );
-
-// const userModel = mongoose.models.user || mongoose.model('user', userSchema);
-
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     isAdmin: { type: Boolean, default: false },
+    phone: { type: String },
+    dateOfBirth: { type: Date },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other', 'prefer-not-to-say'],
+    },
+    bio: { type: String, maxlength: 500 },
+    profileImage: { type: String },
 
     // Photography-related user data
     likedPhotos: [
@@ -102,6 +63,15 @@ const userSchema = new mongoose.Schema(
             unit: String,
           },
         },
+        // ADD THESE MISSING FIELDS:
+        productName: String,
+        productImage: String,
+        unitPrice: Number,
+        isPreorder: { type: Boolean, default: false },
+        availabilityType: String,
+        estimatedDelivery: String,
+        preorderDate: Date,
+        updatedAt: Date,
         addedAt: { type: Date, default: Date.now },
       },
       default: {},
@@ -120,6 +90,9 @@ const userSchema = new mongoose.Schema(
         enum: ['standard', 'express', 'pickup'],
         default: 'standard',
       },
+      emailNotifications: { type: Boolean, default: true },
+      smsNotifications: { type: Boolean, default: false },
+      marketingEmails: { type: Boolean, default: true },
     },
 
     // Saved addresses for faster checkout
@@ -163,6 +136,14 @@ const userSchema = new mongoose.Schema(
         viewedAt: { type: Date, default: Date.now },
       },
     ],
+    isEmailVerified: { type: Boolean, default: false },
+    isPhoneVerified: { type: Boolean, default: false },
+    lastLogin: { type: Date },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'suspended', 'pending'],
+      default: 'active',
+    },
 
     createdAt: {
       type: Date,
@@ -172,7 +153,6 @@ const userSchema = new mongoose.Schema(
   { minimize: false },
   { timestamps: true }
 );
-
 
 // Update the addToCart method to handle inventory reservation
 userSchema.methods.addToCart = async function (

@@ -36,16 +36,32 @@ import {
   updatePreferences,
   likePhoto,
   unlikePhoto,
+  updateProfile,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  verifyResetToken,
 } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
+import {
+  passwordResetLimiter,
+  loginLimiter,
+} from '../middleware/rateLimiter.js';
 
 const userRouter = express.Router();
 
 // Authentication routes
 userRouter.post('/register', registerUser);
-userRouter.post('/login', loginUser);
+userRouter.post('/login', loginLimiter, loginUser);
 userRouter.post('/admin', adminLogin);
 userRouter.get('/me', authUser, getMe);
+userRouter.put('/profile', authUser, updateProfile);
+// Add these routes to your userRouter
+
+userRouter.post('/forgot-password', passwordResetLimiter, forgotPassword);
+userRouter.post('/reset-password', passwordResetLimiter, resetPassword);
+userRouter.get('/verify-reset-token/:token', verifyResetToken);
+userRouter.post('/change-password', authUser, changePassword);
 
 // Cart management routes
 userRouter.post('/cart/add', authUser, addToCart);
@@ -55,7 +71,7 @@ userRouter.put('/cart/quantity', authUser, updateCartQuantity);
 
 // Wishlist management routes
 userRouter.post('/wishlist/add', authUser, addToWishlist);
-userRouter.delete('/wishlist', authUser, removeFromWishlist);
+userRouter.post('/wishlist/remove', authUser, removeFromWishlist);
 userRouter.get('/wishlist', authUser, getWishlist);
 
 // Address management routes

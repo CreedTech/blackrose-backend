@@ -251,7 +251,7 @@ const getEcommerceOverview = async (req, res) => {
 
       // Orders by status within date range
       orderModel.countDocuments({
-        status: { $in: ['Order Placed','Pending'] },
+        status: { $in: ['Order Placed', 'Pending'] },
         // ...dateFilter,
       }),
 
@@ -548,6 +548,7 @@ const updateOrderStatus = async (req, res) => {
         message: 'Order not found',
       });
     }
+    await order.updateStatus(status, note, req.user._id);
 
     res.json({
       success: true,
