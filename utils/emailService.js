@@ -3,13 +3,14 @@ import nodemailer from 'nodemailer';
 import { emailTemplates } from './emailTemplates.js';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.RESEND_SMTP_HOST,
-  port: process.env.RESEND_SMTP_PORT,
+  host: 'smtp.resend.com',
+  port: 465,
   secure: true,
   auth: {
-    user: process.env.SMTP_USER, 
+    user: 'resend', 
     pass: process.env.RESEND_API_KEY, 
   },
+      from: 'no-reply@dblackrose.com',
 });
 
 const sendEmail = async ({
