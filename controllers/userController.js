@@ -1292,7 +1292,7 @@ export const forgotPassword = async (req, res) => {
     }
 
     // Generate secure reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetToken =crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
