@@ -234,6 +234,14 @@ export const updatePost = async (req, res) => {
       req.body.featuredImage = result.secure_url;
     }
 
+    // Generate slug if title is being updated
+    if (req.body.title) {
+      req.body.slug = slugify(req.body.title, {
+        lower: true,
+        remove: /[*+~.()'"!:@]/g
+      });
+    }
+
     const post = await BlogPost.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
