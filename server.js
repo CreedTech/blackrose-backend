@@ -16,6 +16,7 @@ import { trackUserActivity } from './middleware/activityTracking.js';
 import paymentRouter from './routes/paymentRoute.js';
 import blogRouter from './routes/blogRoutes.js';
 import { startScheduledTasks } from './jobs/scheduledTasks.js';
+import contactRouter from './routes/contactRoute.js';
 
 // App Config
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/v1/gallery', galleryRouter);
 app.use('/api/v1/collections', collectionRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/blog', blogRouter);
+app.use('/api/v1/contact', contactRouter);
 
 app.get('/', (req, res) => {
   res.send('API Working');

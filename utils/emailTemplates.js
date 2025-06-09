@@ -369,7 +369,7 @@ export const emailTemplates = {
           </p>
         </div>
         
-        <a href="#" class="button">Track Your Order</a>
+        // <a href="#" class="button">Track Your Order</a>
         
         <p>We'll send you another email when your order ships. If you have any questions, feel free to contact us.</p>
       </div>
@@ -398,34 +398,11 @@ export const emailTemplates = {
             : ''
         }
         
-        ${
-          order.status === 'shipped'
-            ? `
-          <div class="tracking-info">
-            <h3>📦 Your order is on the way!</h3>
-            ${
-              order.tracking?.trackingNumber
-                ? `
-              <p><strong>Tracking Number:</strong> ${
-                order.tracking.trackingNumber
-              }</p>
-              <p><strong>Carrier:</strong> ${order.tracking.carrier}</p>
-              ${
-                order.tracking.trackingUrl
-                  ? `<a href="${order.tracking.trackingUrl}" class="button">Track Package</a>`
-                  : ''
-              }
-            `
-                : ''
-            }
-          </div>
-        `
-            : ''
-        }
+    
         
         ${renderOrderSummary(order)}
         
-        <a href="#" class="button">View Order Details</a>
+        // <a href="#" class="button">View Order Details</a>
       </div>
     `;
     return baseTemplate(content, 'Order Update');
@@ -467,7 +444,7 @@ export const emailTemplates = {
         
         <p>Your order is now confirmed and will be processed shortly.</p>
         
-        <a href="#" class="button">View Order Details</a>
+        // <a href="#" class="button">View Order Details</a>
       </div>
     `;
     return baseTemplate(content, 'Payment Confirmation');
@@ -484,31 +461,7 @@ export const emailTemplates = {
         <h2>Order #${order.orderNumber}</h2>
         <p>Shipped on: ${formatDate(new Date())}</p>
         
-        ${
-          order.tracking?.trackingNumber
-            ? `
-          <div class="tracking-info">
-            <h3>Tracking Information</h3>
-            <p><strong>Tracking Number:</strong> ${
-              order.tracking.trackingNumber
-            }</p>
-            <p><strong>Carrier:</strong> ${
-              order.tracking.carrier || 'Standard Delivery'
-            }</p>
-            <p><strong>Estimated Delivery:</strong> ${
-              order.tracking.estimatedDelivery
-                ? formatDate(order.tracking.estimatedDelivery)
-                : 'TBD'
-            }</p>
-            ${
-              order.tracking.trackingUrl
-                ? `<a href="${order.tracking.trackingUrl}" class="button">Track Your Package</a>`
-                : ''
-            }
-          </div>
-        `
-            : ''
-        }
+       
         
         ${renderOrderSummary(order)}
         
@@ -547,8 +500,8 @@ export const emailTemplates = {
         ${renderOrderSummary(order)}
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="#" class="button">Leave a Review</a>
-          <a href="#" class="button" style="margin-left: 10px;">Shop Again</a>
+        //   <a href="#" class="button">Leave a Review</a>
+          <a href="https://dblackrose.com/shop" class="button" style="margin-left: 10px;">Shop Again</a>
         </div>
         
         <p style="text-align: center; margin-top: 20px;">
@@ -585,7 +538,7 @@ export const emailTemplates = {
         
         <p>We're sorry to see this order cancelled. If you need any assistance or want to place a new order, we're here to help!</p>
         
-        <a href="#" class="button">Shop Again</a>
+        <a href="https://dblackrose.com/shop" class="button">Shop Again</a>
       </div>
     `;
     return baseTemplate(content, 'Order Cancelled');
@@ -648,7 +601,7 @@ export const emailTemplates = {
         
         <p>We'll send you an email notification as soon as your preorder items are ready to ship!</p>
         
-        <a href="#" class="button">View Preorder Status</a>
+        // <a href="#" class="button">View Preorder Status</a>
       </div>
     `;
     return baseTemplate(content, 'Preorder Confirmation');
@@ -750,7 +703,7 @@ export const emailTemplates = {
           </p>
         </div>
         
-        <a href="#" class="button">Process Order</a>
+        // <a href="#" class="button">Process Order</a>
       </div>
     `;
     return baseTemplate(content, 'New Order Alert');
@@ -800,7 +753,7 @@ export const emailTemplates = {
         
         <p>Consider restocking this product to avoid stockouts.</p>
         
-        <a href="#" class="button">Manage Inventory</a>
+        // <a href="#" class="button">Manage Inventory</a>
       </div>
     `;
     return baseTemplate(content, 'Low Stock Alert');
@@ -827,7 +780,7 @@ export const emailTemplates = {
           </ul>
         </div>
         
-        <a href="#" class="button">Restock Product</a>
+        // <a href="#" class="button">Restock Product</a>
       </div>
     `;
     return baseTemplate(content, 'Out of Stock Alert');
@@ -878,7 +831,7 @@ export const emailTemplates = {
       </div>
       
       <div style="text-align: center;">
-        <a href="#" class="button">Try Payment Again</a>
+        // <a href="#" class="button">Try Payment Again</a>
         <a href="mailto:support@dblackrose.com" class="button" style="margin-left: 10px; background: #6c757d;">Contact Support</a>
       </div>
       
@@ -997,7 +950,7 @@ export const emailTemplates = {
       }
       
       <div style="text-align: center; margin-top: 30px;">
-        <a href="#" class="button">View Admin Dashboard</a>
+        // <a href="#" class="button">View Admin Dashboard</a>
       </div>
     </div>
   `;
@@ -1047,7 +1000,7 @@ export const emailTemplates = {
       product.description.length > 200 ? '...' : ''
     }</p>
       
-      <a href="#" class="button">View Product</a>
+    //   <a href="https://dblackrose.com/shop/" class="button">View Product</a>
     </div>
   `;
     return baseTemplate(content, 'New Product Added');
@@ -1101,7 +1054,7 @@ export const emailTemplates = {
         </div>
       </div>
       
-      <a href="#" class="button">View All Reviews</a>
+    //   <a href="#" class="button">View All Reviews</a>
     </div>
   `;
     return baseTemplate(content, 'New Product Review');
@@ -1152,8 +1105,8 @@ export const emailTemplates = {
       <p>Don't wait too long - popular items sell out fast!</p>
       
       <div style="text-align: center;">
-        <a href="#" class="button">Shop Now</a>
-        <a href="#" class="button" style="margin-left: 10px; background: #6c757d;">Add to Wishlist</a>
+        <a href="https://dblackrose.com/shop" class="button">Shop Now</a>
+        // <a href="#" class="button" style="margin-left: 10px; background: #6c757d;">Add to Wishlist</a>
       </div>
     </div>
   `;
@@ -1193,10 +1146,10 @@ export const emailTemplates = {
         You'll receive bonus loyalty points as a thank you for your feedback!
       </div>
       
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button">View Product</a>
-        <a href="#" class="button" style="margin-left: 10px; background: #28a745;">Shop Similar Items</a>
-      </div>
+    //   <div style="text-align: center; margin: 30px 0;">
+    //     <a href="#" class="button">View Product</a>
+    //     <a href="#" class="button" style="margin-left: 10px; background: #28a745;">Shop Similar Items</a>
+    //   </div>
       
       <p>Keep an eye out for our upcoming products - we'd love to hear your thoughts on those too!</p>
     </div>
@@ -1273,10 +1226,10 @@ export const emailTemplates = {
         <p>This price drop might not last long. Popular items at discounted prices tend to sell out quickly!</p>
       </div>
       
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button">Buy Now at Sale Price</a>
-        <a href="#" class="button" style="margin-left: 10px; background: #6c757d;">View All Sale Items</a>
-      </div>
+    //   <div style="text-align: center; margin: 30px 0;">
+    //     <a href="#" class="button">Buy Now at Sale Price</a>
+    //     <a href="#" class="button" style="margin-left: 10px; background: #6c757d;">View All Sale Items</a>
+    //   </div>
       
       <p style="font-size: 14px; color: #6c757d;">
         You're receiving this because "${product.title}" is in your wishlist. 
@@ -1336,12 +1289,12 @@ export const emailTemplates = {
           : ''
       }
       
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button">Approve Review</a>
-        <a href="#" class="button" style="margin-left: 10px; background: #dc3545;">Reject Review</a>
-      </div>
+    //   <div style="text-align: center; margin: 30px 0;">
+    //     <a href="#" class="button">Approve Review</a>
+    //     <a href="#" class="button" style="margin-left: 10px; background: #dc3545;">Reject Review</a>
+    //   </div>
       
-      <a href="#" class="button" style="background: #6c757d;">View All Pending Reviews</a>
+    //   <a href="#" class="button" style="background: #6c757d;">View All Pending Reviews</a>
     </div>
   `;
     return baseTemplate(content, 'Review Moderation Required');
@@ -1416,7 +1369,7 @@ export const emailTemplates = {
       </div>
       
       <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button">Sign In to Your Account</a>
+        <a href="https://dblackrose.com/login" class="button">Sign In to Your Account</a>
       </div>
       
       <p><strong>Didn't make this change?</strong> If you didn't reset your password, please contact our support team immediately at support@dblackrose.com</p>
@@ -1463,7 +1416,7 @@ export const emailTemplates = {
       </div>
       
       <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button" style="background: #dc3545;">Secure My Account</a>
+ 
         <a href="mailto:support@dblackrose.com" class="button" style="margin-left: 10px; background: #6c757d;">Contact Support</a>
       </div>
       
@@ -1474,4 +1427,226 @@ export const emailTemplates = {
   `;
     return baseTemplate(content, 'Password Reset Alert');
   },
+  contactFormSubmission: (data) => {
+    const { contact } = data;
+    const content = `
+    <div class="header">
+      <h1>📧 New Contact Form Submission</h1>
+      <p>Someone has reached out to you through your website</p>
+    </div>
+    <div class="content">
+      <h2>Contact Details</h2>
+      
+      <div class="order-summary">
+        <h3>Sender Information</h3>
+        <div class="total-row">
+          <span>Name:</span>
+          <span>${contact.name}</span>
+        </div>
+        <div class="total-row">
+          <span>Email:</span>
+          <span><a href="mailto:${contact.email}" style="color: #007bff;">${
+      contact.email
+    }</a></span>
+        </div>
+        <div class="total-row">
+          <span>Phone:</span>
+          <span><a href="tel:${contact.phone}" style="color: #007bff;">${
+      contact.phone
+    }</a></span>
+        </div>
+        <div class="total-row">
+          <span>Subject:</span>
+          <span>${contact.subject}</span>
+        </div>
+        <div class="total-row">
+          <span>Submitted:</span>
+          <span>${formatDate(contact.createdAt)}</span>
+        </div>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Message:</h3>
+        <p style="white-space: pre-wrap; line-height: 1.6;">${
+          contact.message
+        }</p>
+      </div>
+      
+      <div class="preorder-notice">
+        <strong>Quick Actions:</strong><br>
+        • Reply directly to this email to respond to ${contact.name}<br>
+        • Call them at ${contact.phone}<br>
+        • Mark as read in your admin panel
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="mailto:${contact.email}?subject=Re: ${
+      contact.subject
+    }&body=Hi ${
+      contact.name
+    },%0D%0A%0D%0AThank you for contacting BlackRose Photography.%0D%0A%0D%0A" 
+           class="button">Reply to ${contact.name}</a>
+       
+      </div>
+      
+      <p style="color: #6c757d; font-size: 14px;">
+        <strong>IP Address:</strong> ${contact.ipAddress || 'N/A'}<br>
+        <strong>User Agent:</strong> ${
+          contact.userAgent
+            ? contact.userAgent.substring(0, 100) + '...'
+            : 'N/A'
+        }
+      </p>
+    </div>
+  `;
+    return baseTemplate(content, 'New Contact Form Submission');
+  },
+
+  contactConfirmation: (data) => {
+    const { contact } = data;
+    const content = `
+    <div class="header">
+      <h1>✅ Message Received!</h1>
+      <p>Thank you for contacting BlackRose Photography</p>
+    </div>
+    <div class="content">
+      <h2>Hi ${contact.name},</h2>
+      
+      <p>Thank you for reaching out to us! We've received your message and will get back to you as soon as possible.</p>
+      
+      <div class="order-summary">
+        <h3>Your Message Details</h3>
+        <div class="total-row">
+          <span>Subject:</span>
+          <span>${contact.subject}</span>
+        </div>
+        <div class="total-row">
+          <span>Submitted:</span>
+          <span>${formatDate(contact.createdAt)}</span>
+        </div>
+        <div class="total-row">
+          <span>Reference ID:</span>
+          <span>#${contact._id.toString().slice(-8).toUpperCase()}</span>
+        </div>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Your Message:</h3>
+        <p style="white-space: pre-wrap; line-height: 1.6; font-style: italic;">"${
+          contact.message
+        }"</p>
+      </div>
+      
+      <div class="preorder-notice">
+        <strong>What's Next?</strong><br>
+        • We typically respond within 24 hours during business days<br>
+        • Check your spam folder if you don't hear from us<br>
+        • Feel free to call us at +2349137104825 for urgent matters
+      </div>
+      
+    //   <div style="text-align: center; margin: 30px 0;">
+    //     <a href="#" class="button">Visit Our Portfolio</a>
+    //     <a href="#" class="button" style="margin-left: 10px; background: #28a745;">Book a Session</a>
+    //   </div>
+      
+      <p>We're excited to potentially work with you and bring your photography vision to life!</p>
+      
+      <p style="margin-top: 30px;">
+        Best regards,<br>
+        <strong>The BlackRose Photography Team</strong><br>
+        📧 photography@blackrose.com<br>
+        📞 +2349137104825
+      </p>
+    </div>
+  `;
+    return baseTemplate(content, 'Contact Confirmation');
+  },
+
+  adminContactReply: (data) => {
+    const { contact, replyMessage, adminName } = data;
+    const content = `
+    <div class="header">
+      <h1>💌 Response from BlackRose Photography</h1>
+      <p>Thank you for your patience</p>
+    </div>
+    <div class="content">
+      <h2>Hi ${contact.name},</h2>
+      
+      <p>Thank you for contacting BlackRose Photography. Here's our response to your inquiry:</p>
+      
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007bff;">
+        <h3 style="margin-top: 0; color: #007bff;">Our Response:</h3>
+        <p style="white-space: pre-wrap; line-height: 1.6;">${replyMessage}</p>
+      </div>
+      
+      <div class="order-summary">
+        <h3>Original Message Reference</h3>
+        <div class="total-row">
+          <span>Subject:</span>
+          <span>${contact.subject}</span>
+        </div>
+        <div class="total-row">
+          <span>Your Original Message:</span>
+          <span style="font-style: italic;">"${contact.message.substring(
+            0,
+            100
+          )}${contact.message.length > 100 ? '...' : ''}"</span>
+        </div>
+        <div class="total-row">
+          <span>Reference ID:</span>
+          <span>#${contact._id.toString().slice(-8).toUpperCase()}</span>
+        </div>
+      </div>
+      
+      <div class="preorder-notice">
+        <strong>Need More Help?</strong><br>
+        If you have additional questions or need clarification, feel free to reply to this email or contact us directly.
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="mailto:photography@blackrose.com?subject=Re: ${
+          contact.subject
+        } (Ref: #${contact._id.toString().slice(-8).toUpperCase()})" 
+           class="button">Reply to This Message</a>
+        <a href="tel:+16503330000" class="button" style="margin-left: 10px; background: #28a745;">Call Us</a>
+      </div>
+      
+      <p style="margin-top: 30px;">
+        Best regards,<br>
+        <strong>${adminName || 'BlackRose Photography Team'}</strong><br>
+        📧 photography@blackrose.com<br>
+        📞 +2349137104825
+      </p>
+    </div>
+  `;
+    return baseTemplate(content, 'Response from BlackRose Photography');
+  },
 };
+
+
+
+//  ${
+//           order.tracking?.trackingNumber
+//             ? `
+//           <div class="tracking-info">
+//             <h3>Tracking Information</h3>
+//             <p><strong>Tracking Number:</strong> ${
+//               order.tracking.trackingNumber
+//             }</p>
+//             <p><strong>Carrier:</strong> ${
+//               order.tracking.carrier || 'Standard Delivery'
+//             }</p>
+//             <p><strong>Estimated Delivery:</strong> ${
+//               order.tracking.estimatedDelivery
+//                 ? formatDate(order.tracking.estimatedDelivery)
+//                 : 'TBD'
+//             }</p>
+//             ${
+//               order.tracking.trackingUrl
+//                 ? `<a href="${order.tracking.trackingUrl}" class="button">Track Your Package</a>`
+//                 : ''
+//             }
+//           </div>
+//         `
+//             : ''
+//         }

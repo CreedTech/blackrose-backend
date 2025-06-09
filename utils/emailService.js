@@ -7,10 +7,10 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: 'resend', 
-    pass: process.env.RESEND_API_KEY, 
+    user: 'resend',
+    pass: process.env.RESEND_API_KEY,
   },
-      from: 'no-reply@dblackrose.com',
+  from: 'no-reply@dblackrose.com',
 });
 
 const sendEmail = async ({
@@ -268,6 +268,36 @@ export const sendPasswordResetAlert = async (
     subject: 'Password Reset Alert - BlackRose',
     template: 'passwordResetAlert',
     data: { user, ipAddress, userAgent, timestamp },
+  });
+};
+export const sendContactFormNotification = async (contact, adminEmail) => {
+  return await sendEmail({
+    to: adminEmail,
+    subject: `New Contact Form: ${contact.subject}`,
+    template: 'contactFormSubmission',
+    data: { contact },
+  });
+};
+
+export const sendContactConfirmation = async (contact) => {
+  return await sendEmail({
+    to: contact.email,
+    subject: 'Thank you for contacting BlackRose Photography',
+    template: 'contactConfirmation',
+    data: { contact },
+  });
+};
+
+export const sendAdminContactReply = async (
+  contact,
+  replyMessage,
+  adminName
+) => {
+  return await sendEmail({
+    to: contact.email,
+    subject: `Re: ${contact.subject}`,
+    template: 'adminContactReply',
+    data: { contact, replyMessage, adminName },
   });
 };
 
