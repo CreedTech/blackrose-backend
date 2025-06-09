@@ -11,6 +11,7 @@ import {
   sendPasswordResetAlert,
 } from '../utils/emailService.js';
 import PasswordReset from '../models/passwordResetModel.js';
+import crypto from 'crypto';
 
 const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
