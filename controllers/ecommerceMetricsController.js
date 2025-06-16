@@ -251,12 +251,12 @@ const getEcommerceOverview = async (req, res) => {
 
       // Orders by status within date range
       orderModel.countDocuments({
-        status: { $in: ['Order Placed', 'Pending'] },
+        status: { $in: ['Pending', 'pending'] },
         // ...dateFilter,
       }),
 
       orderModel.countDocuments({
-        status: { $in: ['Processing'] },
+        status: { $in: ['confirmed', 'Confirmed'] },
         // ...dateFilter,
       }),
 
@@ -266,7 +266,7 @@ const getEcommerceOverview = async (req, res) => {
       }),
 
       orderModel.countDocuments({
-        status: { $in: ['Cancelled'] },
+        status: { $in: ['Cancelled', 'cancelled'] },
         // ...dateFilter,
       }),
 
@@ -274,7 +274,7 @@ const getEcommerceOverview = async (req, res) => {
       orderModel.aggregate([
         {
           $match: {
-            ...dateFilter,
+            // ...dateFilter,
             paymentStatus: 'success',
           },
         },
@@ -291,9 +291,9 @@ const getEcommerceOverview = async (req, res) => {
 
       // Top selling products within date range
       orderModel.aggregate([
-        {
-          $match: dateFilter,
-        },
+        // {
+        //   $match: dateFilter,
+        // },
         { $unwind: '$items' },
         {
           $group: {
@@ -324,7 +324,7 @@ const getEcommerceOverview = async (req, res) => {
     const dailySalesTrend = await orderModel.aggregate([
       {
         $match: {
-          ...dateFilter,
+          // ...dateFilter,
           paymentStatus: 'success',
         },
       },
