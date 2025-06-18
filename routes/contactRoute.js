@@ -9,8 +9,7 @@ import {
   deleteContact,
   getContactStats,
 } from '../controllers/contactController.js';
-import authUser from '../middleware/auth.js';
-import { adminOnly } from '../middleware/adminAuth.js';
+import { adminAuth, authUser } from '../middleware/auth.js';
 
 const contactRouter = express.Router();
 
@@ -18,21 +17,11 @@ const contactRouter = express.Router();
 contactRouter.post('/submit', submitContactForm);
 
 // Admin routes
-contactRouter.get('/admin', authUser, adminOnly, getAllContacts);
-contactRouter.get('/admin/stats', authUser, adminOnly, getContactStats);
-contactRouter.get('/admin/:contactId', authUser, adminOnly, getContact);
-contactRouter.put(
-  '/admin/:contactId',
-  authUser,
-  adminOnly,
-  updateContactStatus
-);
-contactRouter.post(
-  '/admin/:contactId/reply',
-  authUser,
-  adminOnly,
-  replyToContact
-);
-contactRouter.delete('/admin/:contactId', authUser, adminOnly, deleteContact);
+contactRouter.get('/admin', adminAuth, getAllContacts);
+contactRouter.get('/admin/stats', adminAuth, getContactStats);
+contactRouter.get('/admin/:contactId', adminAuth, getContact);
+contactRouter.put('/admin/:contactId', adminAuth, updateContactStatus);
+contactRouter.post('/admin/:contactId/reply', adminAuth, replyToContact);
+contactRouter.delete('/admin/:contactId', adminAuth, deleteContact);
 
 export default contactRouter;

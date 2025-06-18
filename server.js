@@ -11,7 +11,6 @@ import categoryRouter from './routes/categoryRoute.js';
 import galleryRouter from './routes/imageRoute.js';
 import collectionRouter from './routes/collectionRoutes.js';
 import adminRouter from './routes/adminRoute.js';
-import authUser from './middleware/auth.js';
 import { trackUserActivity } from './middleware/activityTracking.js';
 import paymentRouter from './routes/paymentRoute.js';
 import blogRouter from './routes/blogRoutes.js';

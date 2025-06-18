@@ -42,7 +42,8 @@ import {
   resetPassword,
   verifyResetToken,
 } from '../controllers/userController.js';
-import authUser from '../middleware/auth.js';
+import { authUser } from '../middleware/auth.js';
+// import authUser from '../middleware/auth.js';
 // import {
 //   passwordResetLimiter,
 //   loginLimiter,

@@ -10,7 +10,7 @@ const imageSchema = new mongoose.Schema({
   watermarkedUrl: String,
   publicId: String,
   photographer: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'PhotographyCategory' },
   tags: { type: [String], default: [] },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],
   likeCount: { type: Number, default: 0 },

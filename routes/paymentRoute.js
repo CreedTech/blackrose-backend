@@ -30,8 +30,7 @@ import {
   processRefund,
   checkRefundEligibility,
 } from '../controllers/paymentController.js';
-import authUser from '../middleware/auth.js';
-import { adminOnly } from '../middleware/adminAuth.js';
+import { adminAuth, authUser } from '../middleware/auth.js';
 
 const paymentRouter = express.Router();
 
@@ -50,6 +49,6 @@ paymentRouter.get('/callback', handleCallback);
 paymentRouter.post('/webhook', handleWebhook);
 
 // Admin-only routes
-paymentRouter.post('/refund', authUser, adminOnly, processRefund);
+paymentRouter.post('/refund', adminAuth, processRefund);
 
 export default paymentRouter;

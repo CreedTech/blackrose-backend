@@ -26,24 +26,39 @@ const parseCustomSize = (customSizeStr) => {
   if (!customSizeStr || customSizeStr === '{}' || customSizeStr === '') {
     return undefined;
   }
-  
+
   try {
-    const parsed = typeof customSizeStr === 'string' ? JSON.parse(customSizeStr) : customSizeStr;
-    
+    const parsed =
+      typeof customSizeStr === 'string'
+        ? JSON.parse(customSizeStr)
+        : customSizeStr;
+
     // Check if any meaningful values exist
     const hasValues = Object.entries(parsed).some(([key, value]) => {
       if (key === 'unit') return false; // unit doesn't count as a meaningful value
       return value && value !== '' && value !== '0' && !isNaN(Number(value));
     });
-    
+
     if (!hasValues) return undefined;
-    
+
     return {
-      width: parsed.width && !isNaN(Number(parsed.width)) ? Number(parsed.width) : undefined,
-      height: parsed.height && !isNaN(Number(parsed.height)) ? Number(parsed.height) : undefined,
-      diameter: parsed.diameter && !isNaN(Number(parsed.diameter)) ? Number(parsed.diameter) : undefined,
-      length: parsed.length && !isNaN(Number(parsed.length)) ? Number(parsed.length) : undefined,
-      unit: parsed.unit || 'cm'
+      width:
+        parsed.width && !isNaN(Number(parsed.width))
+          ? Number(parsed.width)
+          : undefined,
+      height:
+        parsed.height && !isNaN(Number(parsed.height))
+          ? Number(parsed.height)
+          : undefined,
+      diameter:
+        parsed.diameter && !isNaN(Number(parsed.diameter))
+          ? Number(parsed.diameter)
+          : undefined,
+      length:
+        parsed.length && !isNaN(Number(parsed.length))
+          ? Number(parsed.length)
+          : undefined,
+      unit: parsed.unit || 'cm',
     };
   } catch (error) {
     console.error('Error parsing customSize:', error);
@@ -53,10 +68,14 @@ const parseCustomSize = (customSizeStr) => {
 
 // Helper function to parse weight object properly
 const parseWeightObject = (weightInput) => {
-  if (!weightInput || weightInput === '[object Object]' || weightInput === '{}') {
+  if (
+    !weightInput ||
+    weightInput === '[object Object]' ||
+    weightInput === '{}'
+  ) {
     return { unit: 'kg' };
   }
-  
+
   try {
     let parsed;
     if (typeof weightInput === 'string') {
@@ -69,12 +88,18 @@ const parseWeightObject = (weightInput) => {
     } else {
       return { unit: 'kg' };
     }
-    
+
     return {
-      category: validateEnumField(parsed.category, ['Lightweight', 'Medium Weight', 'Heavy']),
-      actualWeight: parsed.actualWeight && !isNaN(Number(parsed.actualWeight)) 
-        ? Number(parsed.actualWeight) : undefined,
-      unit: validateEnumField(parsed.unit, ['g', 'kg', 'oz', 'lbs']) || 'kg'
+      category: validateEnumField(parsed.category, [
+        'Lightweight',
+        'Medium Weight',
+        'Heavy',
+      ]),
+      actualWeight:
+        parsed.actualWeight && !isNaN(Number(parsed.actualWeight))
+          ? Number(parsed.actualWeight)
+          : undefined,
+      unit: validateEnumField(parsed.unit, ['g', 'kg', 'oz', 'lbs']) || 'kg',
     };
   } catch (error) {
     console.error('Error parsing weight:', error);
@@ -93,15 +118,20 @@ const validateEnumField = (value, allowedValues) => {
 // Enhanced array field parser
 const parseArrayField = (field) => {
   if (!field) return [];
-  if (Array.isArray(field)) return field.filter(item => item && item !== '');
+  if (Array.isArray(field)) return field.filter((item) => item && item !== '');
   if (field === '[]' || field === '') return [];
   if (typeof field === 'string') {
     try {
       const parsed = JSON.parse(field);
-      return Array.isArray(parsed) ? parsed.filter(item => item && item !== '') : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((item) => item && item !== '')
+        : [];
     } catch (error) {
       // If JSON.parse fails, try splitting by comma
-      return field.split(',').map(item => item.trim()).filter(Boolean);
+      return field
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
   }
   return [];
@@ -110,57 +140,117 @@ const parseArrayField = (field) => {
 // Helper to clean variant data
 const cleanVariantData = (variant) => {
   const cleaned = { ...variant };
-  
+
   // Handle images array - CRITICAL FIX
   if (!cleaned.images || !Array.isArray(cleaned.images)) {
     cleaned.images = [];
   } else {
     // Filter out invalid entries and ensure we have valid URLs or empty array
-    cleaned.images = cleaned.images.filter(img => {
+    cleaned.images = cleaned.images.filter((img) => {
       if (!img) return false;
-      if (typeof img === 'string' && img.trim() !== '' && img !== '{}' && img !== '[object Object]') {
+      if (
+        typeof img === 'string' &&
+        img.trim() !== '' &&
+        img !== '{}' &&
+        img !== '[object Object]'
+      ) {
         return true;
       }
       return false;
     });
   }
-  
+
   // Clean enum fields
   cleaned.color = validateEnumField(cleaned.color, [
-    'Black', 'White', 'Gray', 'Beige', 'Brown', 'Red', 'Yellow', 
-    'Blue', 'Green', 'Purple', 'Orange', 'Pink', 'Gold', 'Silver', 
-    'Transparent', 'Multi-color', 'Custom'
+    'Black',
+    'White',
+    'Gray',
+    'Beige',
+    'Brown',
+    'Red',
+    'Yellow',
+    'Blue',
+    'Green',
+    'Purple',
+    'Orange',
+    'Pink',
+    'Gold',
+    'Silver',
+    'Transparent',
+    'Multi-color',
+    'Custom',
   ]);
-  
-  cleaned.size = validateEnumField(cleaned.size, ['XS', 'S', 'M', 'L', 'XL', 'Custom']);
-  
+
+  cleaned.size = validateEnumField(cleaned.size, [
+    'XS',
+    'S',
+    'M',
+    'L',
+    'XL',
+    'Custom',
+  ]);
+
   cleaned.material = validateEnumField(cleaned.material, [
-    'Fabric', 'Cotton', 'Muslin', 'Velvet', 'Paper', 'Thick Cardstock',
-    'Glossy Paper', 'Matte Paper', 'Plastic', 'PVC', 'Acrylic', 'Wood',
-    'Natural Wood', 'Painted Wood', 'Metal', 'Aluminum', 'Steel', 'Vinyl',
-    'Foam', 'Silicone', 'Leather', 'Canvas', 'Marble Effect', 'Concrete Effect'
+    'Fabric',
+    'Cotton',
+    'Muslin',
+    'Velvet',
+    'Paper',
+    'Thick Cardstock',
+    'Glossy Paper',
+    'Matte Paper',
+    'Plastic',
+    'PVC',
+    'Acrylic',
+    'Wood',
+    'Natural Wood',
+    'Painted Wood',
+    'Metal',
+    'Aluminum',
+    'Steel',
+    'Vinyl',
+    'Foam',
+    'Silicone',
+    'Leather',
+    'Canvas',
+    'Marble Effect',
+    'Concrete Effect',
   ]);
-  
+
   cleaned.finish = validateEnumField(cleaned.finish, [
-    'Matte', 'Glossy', 'Satin', 'Textured', 'Reflective', 'Frosted',
-    'Rustic', 'Modern', 'Vintage', 'Patterned', 'Gradient', 'Solid Color'
+    'Matte',
+    'Glossy',
+    'Satin',
+    'Textured',
+    'Reflective',
+    'Frosted',
+    'Rustic',
+    'Modern',
+    'Vintage',
+    'Patterned',
+    'Gradient',
+    'Solid Color',
   ]);
-  
+
   // Handle custom size
   cleaned.customSize = parseCustomSize(cleaned.customSize);
-  
+
   // Ensure numeric fields
   cleaned.stock = Number(cleaned.stock) || 0;
   cleaned.price = Number(cleaned.price) || 0;
   cleaned.discount = Number(cleaned.discount) || 0;
-  
+
   // Remove empty/undefined fields
-  Object.keys(cleaned).forEach(key => {
-    if (cleaned[key] === undefined || cleaned[key] === '' || cleaned[key] === null) {
+  Object.keys(cleaned).forEach((key) => {
+    if (
+      cleaned[key] === undefined ||
+      cleaned[key] === '' ||
+      cleaned[key] === null
+    ) {
       delete cleaned[key];
     }
   });
-  
+
   return cleaned;
 };
 
@@ -1347,93 +1437,11 @@ const updateAllProductPrices = async () => {
     await product.save();
   }
 };
-// const listProducts = async (req, res) => {
-//   try {
-//     const {
-//       page = 1,
-//       limit = 12,
-//       category,
-//       productType,
-//       brand,
-//       priceMin,
-//       priceMax,
-//       features,
-//       functionalityTags,
-//       color,
-//       material,
-//       inStock,
-//       sortBy = 'date',
-//       sortOrder = 'desc',
-//       search,
-//     } = req.query;
-
-//     // Build filter object
-//     const filters = {};
-
-//     if (category) filters.category = category;
-//     if (productType) filters.productType = productType;
-//     if (brand) filters.brand = new RegExp(brand, 'i');
-//     if (priceMin || priceMax) {
-//       filters.price = {};
-//       if (priceMin) filters.price.$gte = Number(priceMin);
-//       if (priceMax) filters.price.$lte = Number(priceMax);
-//     }
-//     if (features) filters.features = { $in: features.split(',') };
-//     if (functionalityTags)
-//       filters.functionalityTags = { $in: functionalityTags.split(',') };
-//     if (color) filters.color = { $in: color.split(',') };
-//     if (material) filters.material = { $in: material.split(',') };
-//     if (inStock === 'true') filters.stock = { $gt: 0 };
-//     if (search) {
-//       filters.$or = [
-//         { title: new RegExp(search, 'i') },
-//         { description: new RegExp(search, 'i') },
-//         { tags: new RegExp(search, 'i') },
-//       ];
-//     }
-
-//     // Only show active products
-//     filters.isActive = true;
-
-//     // Build sort object
-//     const sortObj = {};
-//     sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-//     // Execute query with pagination
-//     const skip = (Number(page) - 1) * Number(limit);
-//     const products = await productModel
-//       .find(filters)
-//       .sort(sortObj)
-//       .skip(skip)
-//       .limit(Number(limit))
-//       .populate('category')
-//       .lean();
-
-//     // Get total count for pagination
-//     const totalProducts = await productModel.countDocuments(filters);
-//     const totalPages = Math.ceil(totalProducts / Number(limit));
-
-//     res.json({
-//       success: true,
-//       products,
-//       pagination: {
-//         currentPage: Number(page),
-//         totalPages,
-//         totalProducts,
-//         hasNextPage: Number(page) < totalPages,
-//         hasPrevPage: Number(page) > 1,
-//       },
-//     });
-//   } catch (error) {
-//     console.error('List products error:', error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 const updateProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const updateData = { ...req.body };
+
     const currentProduct = await productModel.findById(productId);
     if (!currentProduct) {
       return res.status(404).json({
@@ -1561,85 +1569,521 @@ const updateProduct = async (req, res) => {
       }
     });
 
-    console.log('Final update data:', JSON.stringify(updateData, null, 2));
+    // 🆕 DATA CLEANING SECTION - FIX ALL VALIDATION ISSUES
 
-    // If the variants field might cause problems, consider using a different approach
-    // Option 1: Use findById and manual updates for better control
-    if (updateData.variants) {
-      const product = await productModel.findById(productId);
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: 'Product not found',
-        });
-      }
-
-      // Set each field individually, carefully handling variants
-      Object.keys(updateData).forEach((key) => {
-        if (key !== 'variants') {
-          product[key] = updateData[key];
-        }
-      });
-
-      // Handle variants separately
-      if (Array.isArray(updateData.variants)) {
-        product.variants = updateData.variants;
-      }
-
-      const updatedProduct = await product.save();
-
-      if (newPrice < oldPrice) {
-        try {
-          const { checkPriceDrops } = await import(
-            '../services/priceDropService.js'
-          );
-          await checkPriceDrops(updatedProduct, oldPrice, newPrice);
-        } catch (emailError) {
-          console.error('Error sending price drop notifications:', emailError);
+    // 1. Fix weight field (convert "[object Object]" back to object)
+    if (updateData.weight) {
+      if (typeof updateData.weight === 'string') {
+        if (updateData.weight === '[object Object]') {
+          // If it's the stringified object, create a default weight object
+          updateData.weight = {
+            category: undefined,
+            actualWeight: undefined,
+            unit: 'kg',
+          };
+        } else {
+          try {
+            updateData.weight = JSON.parse(updateData.weight);
+          } catch (e) {
+            console.log('Failed to parse weight, using default');
+            updateData.weight = {
+              category: undefined,
+              actualWeight: undefined,
+              unit: 'kg',
+            };
+          }
         }
       }
+      // Ensure weight object has proper structure
+      if (updateData.weight && typeof updateData.weight === 'object') {
+        const validWeightCategories = ['Lightweight', 'Medium Weight', 'Heavy'];
+        const validUnits = ['g', 'kg', 'oz', 'lbs'];
 
-      return res.json({
-        success: true,
-        message: 'Product updated successfully',
-        product: updatedProduct,
+        if (
+          updateData.weight.category &&
+          !validWeightCategories.includes(updateData.weight.category)
+        ) {
+          updateData.weight.category = undefined;
+        }
+        if (
+          updateData.weight.unit &&
+          !validUnits.includes(updateData.weight.unit)
+        ) {
+          updateData.weight.unit = 'kg';
+        }
+      }
+    }
+
+    // 2. Fix orientation field (remove empty array string)
+    if (updateData.orientation) {
+      if (typeof updateData.orientation === 'string') {
+        if (updateData.orientation === '[]' || updateData.orientation === '') {
+          updateData.orientation = []; // Set to empty array
+        } else {
+          updateData.orientation = parseArrayField(updateData.orientation);
+        }
+      }
+      // Filter out invalid values
+      if (Array.isArray(updateData.orientation)) {
+        const validOrientations = [
+          'Horizontal',
+          'Vertical',
+          'Square',
+          'Adjustable',
+        ];
+        updateData.orientation = updateData.orientation.filter((o) =>
+          validOrientations.includes(o)
+        );
+      }
+    }
+
+    // 3. Clean up variants using your existing helper function
+    if (updateData.variants && Array.isArray(updateData.variants)) {
+      updateData.variants = updateData.variants.map((variant, index) => {
+        // 🎯 Use your existing cleanVariantData helper
+        const cleanedVariant = cleanVariantData(variant);
+
+        // Generate SKU if missing (your helper might not handle this)
+        if (!cleanedVariant.sku || cleanedVariant.sku === '') {
+          const productTypePrefix = updateData.productType
+            ? updateData.productType
+                .substring(0, 3)
+                .toUpperCase()
+                .replace(/[^A-Z]/g, '')
+            : 'PRD';
+          cleanedVariant.sku = `${productTypePrefix}-VAR-${Date.now()}-${index}`;
+        }
+
+        // Ensure required nested objects exist (your helper might not handle these)
+        if (
+          !cleanedVariant.inventory ||
+          typeof cleanedVariant.inventory !== 'object'
+        ) {
+          cleanedVariant.inventory = {
+            managed: true,
+            availableQuantity: cleanedVariant.stock || 0,
+            reservedQuantity: 0,
+            lowStockThreshold: 5,
+            backorderAllowed: false,
+            backorderLimit: 0,
+          };
+        }
+
+        if (
+          !cleanedVariant.shipping ||
+          typeof cleanedVariant.shipping !== 'object'
+        ) {
+          cleanedVariant.shipping = {
+            dimensions: { unit: 'cm' },
+            requiresSpecialHandling: false,
+            additionalCost: 0,
+          };
+        }
+
+        if (!cleanedVariant.variantAttributes) {
+          cleanedVariant.variantAttributes = {};
+        }
+
+        // Ensure boolean fields are actually boolean
+        cleanedVariant.isActive =
+          cleanedVariant.isActive === true ||
+          cleanedVariant.isActive === 'true';
+
+        // Remove fields that shouldn't be in the schema
+        delete cleanedVariant.tempId;
+
+        return cleanedVariant;
       });
-    } else {
-      // If no variants to update, use the standard findByIdAndUpdate
-      const updatedProduct = await productModel.findByIdAndUpdate(
-        productId,
-        updateData,
-        { new: true, runValidators: true }
+
+      // Filter out any completely invalid variants
+      updateData.variants = updateData.variants.filter(
+        (variant) =>
+          variant.sku && typeof variant.price === 'number' && variant.price > 0
       );
+    }
 
-      if (!updatedProduct) {
-        return res.status(404).json({
-          success: false,
-          message: 'Product not found',
-        });
+    // Remove undefined/null fields that might cause issues
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
       }
-      if (newPrice < oldPrice) {
-        try {
-          const { checkPriceDrops } = await import(
-            '../services/priceDropService.js'
-          );
-          await checkPriceDrops(updatedProduct, oldPrice, newPrice);
-        } catch (emailError) {
-          console.error('Error sending price drop notifications:', emailError);
-        }
-      }
+    });
 
-      return res.json({
-        success: true,
-        message: 'Product updated successfully',
-        product: updatedProduct,
+    console.log('Cleaned update data:', JSON.stringify(updateData, null, 2));
+
+    // Use manual update approach for better control
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
       });
     }
+
+    // Set each field individually, excluding variants first
+    Object.keys(updateData).forEach((key) => {
+      if (key !== 'variants') {
+        product[key] = updateData[key];
+      }
+    });
+
+    // Handle variants separately for better control
+    if (updateData.variants && Array.isArray(updateData.variants)) {
+      product.variants = updateData.variants;
+    }
+
+    // Validate before saving
+    try {
+      await product.validate();
+    } catch (validationError) {
+      console.error('Validation error before save:', validationError);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationError.errors,
+      });
+    }
+
+    // Save with validation
+    const updatedProduct = await product.save();
+
+    // Handle price drop notifications
+    if (newPrice < oldPrice) {
+      try {
+        const { checkPriceDrops } = await import(
+          '../services/priceDropService.js'
+        );
+        await checkPriceDrops(updatedProduct, oldPrice, newPrice);
+      } catch (emailError) {
+        console.error('Error sending price drop notifications:', emailError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product: updatedProduct,
+    });
   } catch (error) {
     console.error('Update product error:', error);
-    res.status(500).json({ success: false, message: error.message });
+
+    // More detailed error response
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.keys(error.errors).map((key) => ({
+        field: key,
+        message: error.errors[key].message,
+        value: error.errors[key].value,
+      }));
+
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
   }
 };
+
+// const listProducts = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 12,
+//       category,
+//       productType,
+//       brand,
+//       priceMin,
+//       priceMax,
+//       features,
+//       functionalityTags,
+//       color,
+//       material,
+//       inStock,
+//       sortBy = 'date',
+//       sortOrder = 'desc',
+//       search,
+//     } = req.query;
+
+//     // Build filter object
+//     const filters = {};
+
+//     if (category) filters.category = category;
+//     if (productType) filters.productType = productType;
+//     if (brand) filters.brand = new RegExp(brand, 'i');
+//     if (priceMin || priceMax) {
+//       filters.price = {};
+//       if (priceMin) filters.price.$gte = Number(priceMin);
+//       if (priceMax) filters.price.$lte = Number(priceMax);
+//     }
+//     if (features) filters.features = { $in: features.split(',') };
+//     if (functionalityTags)
+//       filters.functionalityTags = { $in: functionalityTags.split(',') };
+//     if (color) filters.color = { $in: color.split(',') };
+//     if (material) filters.material = { $in: material.split(',') };
+//     if (inStock === 'true') filters.stock = { $gt: 0 };
+//     if (search) {
+//       filters.$or = [
+//         { title: new RegExp(search, 'i') },
+//         { description: new RegExp(search, 'i') },
+//         { tags: new RegExp(search, 'i') },
+//       ];
+//     }
+
+//     // Only show active products
+//     filters.isActive = true;
+
+//     // Build sort object
+//     const sortObj = {};
+//     sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+//     // Execute query with pagination
+//     const skip = (Number(page) - 1) * Number(limit);
+//     const products = await productModel
+//       .find(filters)
+//       .sort(sortObj)
+//       .skip(skip)
+//       .limit(Number(limit))
+//       .populate('category')
+//       .lean();
+
+//     // Get total count for pagination
+//     const totalProducts = await productModel.countDocuments(filters);
+//     const totalPages = Math.ceil(totalProducts / Number(limit));
+
+//     res.json({
+//       success: true,
+//       products,
+//       pagination: {
+//         currentPage: Number(page),
+//         totalPages,
+//         totalProducts,
+//         hasNextPage: Number(page) < totalPages,
+//         hasPrevPage: Number(page) > 1,
+//       },
+//     });
+//   } catch (error) {
+//     console.error('List products error:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// const updateProduct = async (req, res) => {
+//   try {
+//     const { productId } = req.params;
+//     const updateData = { ...req.body };
+
+//     const currentProduct = await productModel.findById(productId);
+//     if (!currentProduct) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Product not found',
+//       });
+//     }
+
+//     const oldPrice = currentProduct.price;
+//     const newPrice = updateData.price ? Number(updateData.price) : oldPrice;
+
+//     // Handle image updates if new files are uploaded
+//     if (req.files && Object.keys(req.files).length > 0) {
+//       const imageFiles = [
+//         req.files.image1?.[0],
+//         req.files.image2?.[0],
+//         req.files.image3?.[0],
+//         req.files.image4?.[0],
+//         req.files.image5?.[0],
+//       ].filter(Boolean);
+
+//       if (imageFiles.length > 0) {
+//         const newImages = await Promise.all(
+//           imageFiles.map(async (item) => {
+//             const result = await cloudinary.uploader.upload(item.path, {
+//               resource_type: 'image',
+//               folder: 'products',
+//               transformation: [
+//                 { width: 800, height: 800, crop: 'limit', quality: 'auto' },
+//               ],
+//             });
+//             return result.secure_url;
+//           })
+//         );
+//         updateData.images = newImages;
+//       }
+//     }
+
+//     // Handle variants specifically
+//     if (updateData.variants) {
+//       // Check if variants is a string and try to parse it
+//       if (typeof updateData.variants === 'string') {
+//         try {
+//           updateData.variants = JSON.parse(updateData.variants);
+
+//           // After parsing, make sure it's an array
+//           if (!Array.isArray(updateData.variants)) {
+//             delete updateData.variants;
+//             console.log(
+//               'Variants is not an array after parsing, removing from update'
+//             );
+//           }
+//         } catch (e) {
+//           // If parsing fails, delete the field to avoid errors
+//           delete updateData.variants;
+//           console.log(
+//             'Failed to parse variants JSON, removing from update:',
+//             e
+//           );
+//         }
+//       } else if (!Array.isArray(updateData.variants)) {
+//         // If it's not a string and not an array, delete it
+//         delete updateData.variants;
+//         console.log('Variants is not an array, removing from update');
+//       }
+//     }
+
+//     // Parse array fields
+//     [
+//       'color',
+//       'material',
+//       'features',
+//       'functionalityTags',
+//       'usageCompatibility',
+//       'portability',
+//       'includedItems',
+//       'shippingOptions',
+//       'tags',
+//       'seoKeywords',
+//     ].forEach((field) => {
+//       if (updateData[field]) {
+//         updateData[field] = parseArrayField(updateData[field]);
+//       }
+//     });
+
+//     // Parse numeric fields
+//     ['price', 'discount', 'stock', 'actualWeight'].forEach((field) => {
+//       if (updateData[field]) {
+//         updateData[field] = Number(updateData[field]);
+//       }
+//     });
+
+//     // Parse boolean fields
+//     ['bestseller', 'digitalDownload', 'featured', 'isActive'].forEach(
+//       (field) => {
+//         if (updateData[field] !== undefined) {
+//           updateData[field] =
+//             updateData[field] === 'true' || updateData[field] === true;
+//         }
+//       }
+//     );
+
+//     // Parse custom size if provided
+//     if (updateData.customSize) {
+//       updateData.customSize = parseCustomSize(updateData.customSize);
+//     }
+
+//     // Parse category-specific attributes
+//     [
+//       'cameraAttributes',
+//       'lensAttributes',
+//       'lightingAttributes',
+//       'tripodAttributes',
+//       'backdropAttributes',
+//       'propsAttributes',
+//       'studioKitAttributes',
+//     ].forEach((field) => {
+//       if (updateData[field] && typeof updateData[field] === 'string') {
+//         try {
+//           updateData[field] = JSON.parse(updateData[field]);
+//         } catch (e) {
+//           console.error(`Error parsing ${field}:`, e);
+//           delete updateData[field];
+//         }
+//       }
+//     });
+
+//     console.log('Final update data:', JSON.stringify(updateData, null, 2));
+
+//     // If the variants field might cause problems, consider using a different approach
+//     // Option 1: Use findById and manual updates for better control
+//     if (updateData.variants) {
+//       const product = await productModel.findById(productId);
+//       if (!product) {
+//         return res.status(404).json({
+//           success: false,
+//           message: 'Product not found',
+//         });
+//       }
+
+//       // Set each field individually, carefully handling variants
+//       Object.keys(updateData).forEach((key) => {
+//         if (key !== 'variants') {
+//           product[key] = updateData[key];
+//         }
+//       });
+
+//       // Handle variants separately
+//       if (Array.isArray(updateData.variants)) {
+//         product.variants = updateData.variants;
+//       }
+
+//       const updatedProduct = await product.save();
+
+//       if (newPrice < oldPrice) {
+//         try {
+//           const { checkPriceDrops } = await import(
+//             '../services/priceDropService.js'
+//           );
+//           await checkPriceDrops(updatedProduct, oldPrice, newPrice);
+//         } catch (emailError) {
+//           console.error('Error sending price drop notifications:', emailError);
+//         }
+//       }
+
+//       return res.json({
+//         success: true,
+//         message: 'Product updated successfully',
+//         product: updatedProduct,
+//       });
+//     } else {
+//       // If no variants to update, use the standard findByIdAndUpdate
+//       const updatedProduct = await productModel.findByIdAndUpdate(
+//         productId,
+//         updateData,
+//         { new: true, runValidators: true }
+//       );
+
+//       if (!updatedProduct) {
+//         return res.status(404).json({
+//           success: false,
+//           message: 'Product not found',
+//         });
+//       }
+//       if (newPrice < oldPrice) {
+//         try {
+//           const { checkPriceDrops } = await import(
+//             '../services/priceDropService.js'
+//           );
+//           await checkPriceDrops(updatedProduct, oldPrice, newPrice);
+//         } catch (emailError) {
+//           console.error('Error sending price drop notifications:', emailError);
+//         }
+//       }
+
+//       return res.json({
+//         success: true,
+//         message: 'Product updated successfully',
+//         product: updatedProduct,
+//       });
+//     }
+//   } catch (error) {
+//     console.error('Update product error:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 // Remove product function
 const removeProduct = async (req, res) => {
   try {
@@ -1947,20 +2391,47 @@ const getProductVariants = async (req, res) => {
     });
 
     // Find exact variant match if all attributes are selected
+    // let exactMatch = null;
+    // if (
+    //   color &&
+    //   size &&
+    //   (material || !activeVariants.some((v) => v.material)) &&
+    //   (finish || !activeVariants.some((v) => v.finish))
+    // ) {
+    //   exactMatch = filteredVariants.find(
+    //     (variant) =>
+    //       variant.color === color &&
+    //       variant.size === size &&
+    //       (!material || variant.material === material) &&
+    //       (!finish || variant.finish === finish)
+    //   );
+    // }
+    // let exactMatch = null;
+    // if (Object.keys(selectedAttributes).length > 0) {
+    //   exactMatch = filteredVariants.find((variant) => {
+    //     return Object.entries(selectedAttributes).every(([key, value]) => {
+    //       return !value || variant[key] === value;
+    //     });
+    //   });
+
+    //   // If no exact match but only one filtered variant, use it
+    //   if (!exactMatch && filteredVariants.length === 1) {
+    //     exactMatch = filteredVariants[0];
+    //   }
+    // }
     let exactMatch = null;
-    if (
-      color &&
-      size &&
-      (material || !activeVariants.some((v) => v.material)) &&
-      (finish || !activeVariants.some((v) => v.finish))
-    ) {
-      exactMatch = filteredVariants.find(
-        (variant) =>
-          variant.color === color &&
-          variant.size === size &&
-          (!material || variant.material === material) &&
-          (!finish || variant.finish === finish)
-      );
+
+    // 🎯 SMART EXACT MATCH LOGIC
+    if (Object.keys(selectedAttributes).length > 0) {
+      // User has made selections - find exact match
+      exactMatch = filteredVariants.find((variant) => {
+        return Object.entries(selectedAttributes).every(([key, value]) => {
+          return variant[key] === value;
+        });
+      });
+    } else if (activeVariants.length === 1) {
+      // 🚀 Only 1 variant - auto-select it
+      exactMatch = activeVariants[0];
     }
 
     res.json({
@@ -1981,6 +2452,7 @@ const getProductVariants = async (req, res) => {
       filteredVariants,
       exactMatch,
       totalVariants: activeVariants.length,
+      autoSelected: activeVariants.length === 1,
     });
   } catch (error) {
     console.error('Get product variants error:', error);

@@ -1,37 +1,3 @@
-// import express from 'express';
-// import {
-//   listProducts,
-//   addProduct,
-//   removeProduct,
-//   singleProduct,
-//   getSimilarProducts,
-// } from '../controllers/productController.js';
-// import upload from '../middleware/multer.js';
-// import adminAuth, { adminOnly } from '../middleware/adminAuth.js';
-// import authUser from '../middleware/auth.js';
-
-// const productRouter = express.Router();
-
-// productRouter.post(
-//   '/add',
-//   authUser,
-//   adminOnly,
-//   upload.fields([
-//     { name: 'image1', maxCount: 1 },
-//     { name: 'image2', maxCount: 1 },
-//     { name: 'image3', maxCount: 1 },
-//     { name: 'image4', maxCount: 1 },
-//     { name: 'image5', maxCount: 1 },
-//   ]),
-//   addProduct
-// );
-// productRouter.post('/remove', authUser, adminOnly, removeProduct);
-// productRouter.get('/single/:productId', singleProduct);
-// productRouter.get('/similar/:productId', getSimilarProducts);
-// productRouter.get('/list', listProducts);
-
-// export default productRouter;
-
 import express from 'express';
 import {
   listProducts,
@@ -52,8 +18,7 @@ import {
   requestBackInStockNotification,
 } from '../controllers/productController.js';
 import upload from '../middleware/multer.js';
-import adminAuth, { adminOnly } from '../middleware/adminAuth.js';
-import authUser from '../middleware/auth.js';
+import { authUser, requireMarketerAccess } from '../middleware/auth.js';
 
 const productRouter = express.Router();
 
@@ -72,8 +37,7 @@ productRouter.post('/review', authUser, addReview);
 // Admin product routes
 productRouter.post(
   '/add',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   upload.fields([
     { name: 'image1', maxCount: 1 },
     { name: 'image2', maxCount: 1 },
@@ -86,8 +50,7 @@ productRouter.post(
 
 productRouter.put(
   '/:productId',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   upload.fields([
     { name: 'image1', maxCount: 1 },
     { name: 'image2', maxCount: 1 },
@@ -98,13 +61,12 @@ productRouter.put(
   updateProduct
 );
 
-productRouter.delete('/:id', authUser, adminOnly, removeProduct);
+productRouter.delete('/:id', requireMarketerAccess, removeProduct);
 
 // Admin variant management routes
 productRouter.post(
   '/variant/:productId',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   upload.fields([
     { name: 'variantImage1', maxCount: 1 },
     { name: 'variantImage2', maxCount: 1 },
@@ -115,17 +77,15 @@ productRouter.post(
 
 productRouter.put(
   '/variant/:productId/:variantId/stock',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   updateVariantStock
 );
 productRouter.post('/back-in-stock/:productId', requestBackInStockNotification);
 productRouter.get(
   '/inventory/:productId',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   getInventoryStatus
 );
-productRouter.get('/sku/:sku', authUser, adminOnly, findProductBySku);
+productRouter.get('/sku/:sku', requireMarketerAccess, findProductBySku);
 
 export default productRouter;

@@ -128,6 +128,57 @@ const userSchema = new mongoose.Schema(
         addedAt: { type: Date, default: Date.now },
       },
     ],
+    role: {
+      type: String,
+      enum: [
+        'user',
+        'admin',
+        'super-admin',
+        'photographer',
+        'marketer',
+        'writer',
+      ],
+      default: 'user',
+    },
+
+    // Role permissions (you can expand this later)
+    permissions: {
+      canManageProducts: { type: Boolean, default: false },
+      canManageOrders: { type: Boolean, default: false },
+      canManageUsers: { type: Boolean, default: false },
+      canViewAnalytics: { type: Boolean, default: false },
+      canManageContent: { type: Boolean, default: false },
+      canUploadPhotos: { type: Boolean, default: false },
+      canManageMarketing: { type: Boolean, default: false },
+    },
+    // Role-specific metadata
+    roleMetadata: {
+      // For photographers
+      portfolio: { type: String },
+      specialization: [String], // e.g., ['wedding', 'portrait', 'landscape']
+      yearsOfExperience: { type: Number },
+
+      // For marketers
+      products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }],
+
+      // For writers
+      articles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'BlogPost' }],
+
+      // For admins
+      adminLevel: { type: Number, default: 1 }, // 1-5 scale
+      departmentAccess: [String], // ['sales', 'marketing', 'content']
+    },
+
+    // Role assignment tracking
+    roleHistory: [
+      {
+        previousRole: String,
+        newRole: String,
+        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
+        changedAt: { type: Date, default: Date.now },
+        reason: String,
+      },
+    ],
 
     // Recently viewed products
     recentlyViewed: [
@@ -139,9 +190,16 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     lastLogin: { type: Date },
+    // Soft delete fields
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletionReason: { type: String },
+    canReactivate: { type: Boolean, default: true }, // Allow user to come back
+    reactivationToken: { type: String }, // For secure reactivation
+
     accountStatus: {
       type: String,
-      enum: ['active', 'suspended', 'pending'],
+      enum: ['active', 'suspended', 'deactivated', 'pending'],
       default: 'active',
     },
 
@@ -254,6 +312,109 @@ userSchema.methods.getCartItemCount = function () {
     total += item.quantity;
   }
   return total;
+};
+userSchema.methods.hasPermission = function (permission) {
+  return this.permissions[permission] || false;
+};
+
+// Method to check if user has role
+userSchema.methods.hasRole = function (role) {
+  if (Array.isArray(role)) {
+    return role.includes(this.role);
+  }
+  return this.role === role;
+};
+
+// Method to update user role
+userSchema.methods.updateRole = function (newRole, changedBy, reason = '') {
+  console.log(newRole);
+  // Add to role history
+  this.roleHistory.push({
+    previousRole: this.role,
+    newRole: newRole,
+    changedBy: changedBy,
+    reason: reason,
+  });
+
+  // Update role
+  const oldRole = this.role;
+  this.role = newRole;
+
+  // Update isAdmin for backward compatibility
+  this.isAdmin = ['admin', 'super-admin'].includes(newRole);
+
+  // Set default permissions based on role
+  this.setRolePermissions(newRole);
+
+  return this.save();
+};
+
+// Method to set default permissions based on role
+userSchema.methods.setRolePermissions = function (role) {
+  // Reset permissions
+  this.permissions = {
+    canManageProducts: false,
+    canManageOrders: false,
+    canManageUsers: false,
+    canViewAnalytics: false,
+    canManageContent: false,
+    canUploadPhotos: false,
+    canManageMarketing: false,
+  };
+
+  switch (role) {
+    case 'super-admin':
+      // Super admin has all permissions
+      Object.keys(this.permissions).forEach((key) => {
+        this.permissions[key] = true;
+      });
+      break;
+
+    case 'admin':
+      this.permissions.canManageProducts = true;
+      this.permissions.canManageOrders = true;
+      this.permissions.canViewAnalytics = true;
+      this.permissions.canManageContent = true;
+      break;
+
+    case 'photographer':
+      this.permissions.canUploadPhotos = true;
+      break;
+
+    case 'marketer':
+      this.permissions.canManageMarketing = true;
+      break;
+
+    case 'writer':
+      this.permissions.canManageContent = true;
+      break;
+
+    case 'user':
+    default:
+      // Users have basic permissions only
+      break;
+  }
+};
+
+// Static method to get role hierarchy
+userSchema.statics.getRoleHierarchy = function () {
+  return {
+    user: 1,
+    writer: 2,
+    photographer: 3,
+    marketer: 4,
+    admin: 5,
+    'super-admin': 6,
+  };
+};
+
+// Query helpers
+userSchema.query.byRole = function (role) {
+  return this.where({ role: role });
+};
+
+userSchema.query.withAdminAccess = function () {
+  return this.where({ role: { $in: ['admin', 'super-admin'] } });
 };
 
 const userModel = mongoose.models.user || mongoose.model('user', userSchema);

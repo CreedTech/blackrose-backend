@@ -1,7 +1,7 @@
 // routes/blogRoutes.js
 import express from 'express';
 import { adminOnly } from '../middleware/adminAuth.js';
-import authUser from '../middleware/auth.js';
+import { requireWriterAccess } from '../middleware/auth.js';
 import {
   getAllPosts,
   getPostBySlug,
@@ -28,32 +28,29 @@ blogRouter.get('/posts/:slug', getPostBySlug);
 blogRouter.get('/categories', getCategories);
 
 // Admin routes
-blogRouter.get('/admin/posts', authUser, adminOnly, getAllPostsAdmin);
-blogRouter.get('/admin/posts/:id', authUser, adminOnly, getPostById);
+blogRouter.get('/admin/posts', requireWriterAccess, getAllPostsAdmin);
+blogRouter.get('/admin/posts/:id', requireWriterAccess, getPostById);
 blogRouter.post(
   '/admin/posts',
-  authUser,
-  adminOnly,
+  requireWriterAccess,
   upload.single('featuredImage'),
   createPost
 );
 blogRouter.patch(
   '/admin/posts/:id',
-  authUser,
-  adminOnly,
+  requireWriterAccess,
   upload.single('featuredImage'),
   updatePost
 );
 blogRouter.post(
   '/admin/upload',
-  authUser,
-  adminOnly,
+  requireWriterAccess,
   upload.single('image'),
   uploadImage
 );
-blogRouter.delete('/admin/posts/:id', authUser, adminOnly, deletePost);
-blogRouter.post('/admin/categories', authUser, adminOnly, createCategory);
-blogRouter.put('/admin/categories/:id', authUser, adminOnly, updateCategory);
-blogRouter.delete('/admin/categories/:id', authUser, adminOnly, deleteCategory);
+blogRouter.delete('/admin/posts/:id', requireWriterAccess, deletePost);
+blogRouter.post('/admin/categories', requireWriterAccess, createCategory);
+blogRouter.put('/admin/categories/:id', requireWriterAccess, updateCategory);
+blogRouter.delete('/admin/categories/:id', requireWriterAccess, deleteCategory);
 
 export default blogRouter;

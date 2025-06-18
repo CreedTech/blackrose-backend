@@ -501,7 +501,8 @@ const getUsers = async (req, res) => {
     }
 
     const users = await userModel
-      .find(query).populate('uploadedPhotos', 'title watermarkedUrl views likeCount')
+      .find(query)
+      .populate('uploadedPhotos', 'title watermarkedUrl views likeCount')
       .select('-password')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -757,7 +758,6 @@ const getDashboardStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 const getAnalytics = async (req, res) => {
   try {
@@ -1111,7 +1111,6 @@ export const getCategories = async (req, res) => {
   }
 };
 
-
 // Activity logs
 export const getActivityLogs = async (req, res) => {
   try {
@@ -1210,6 +1209,62 @@ const getPhotoStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+const updateUserRoleStatus = async (req, res) => {
+  console.log(req.params);
+  try {
+    const { userId } = req.params;
+    console.log(userId);
+    const { newRole, reason } = req.body;
+    const adminUserId = req.body.userId; // The admin making the change
+
+    // Validate new role
+    const validRoles = [
+      'user',
+      'admin',
+      'super-admin',
+      'photographer',
+      'marketer',
+      'writer',
+    ];
+    if (!validRoles.includes(newRole)) {
+      return res.json({ success: false, message: 'Invalid role specified' });
+    }
+
+    // Find the user to update
+    const user = await userModel.findById(userId);
+    console.log(user);
+    if (!user) {
+      return res.json({ success: false, message: 'User not found' });
+    }
+
+    // Prevent changing super-admin role unless you're a super-admin
+    const adminUser = await userModel.findById(adminUserId);
+    if (user.role === 'super-admin' && adminUser.role !== 'super-admin') {
+      return res.json({
+        success: false,
+        message: 'Only super-admins can modify super-admin roles',
+      });
+    }
+
+    // Update the role
+    await user.updateRole(newRole, adminUserId, reason);
+
+    res.json({
+      success: true,
+      message: `User role updated to ${newRole}`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+      },
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.json({ success: false, message: 'Error updating user role' });
+  }
+};
 export {
   getMetricsByRange,
   getMetricsByCustomRange,
@@ -1221,5 +1276,6 @@ export {
   updateUserRole,
   getSettings,
   updateSettings,
-  getPhotoStats
+  getPhotoStats,
+  updateUserRoleStatus,
 };

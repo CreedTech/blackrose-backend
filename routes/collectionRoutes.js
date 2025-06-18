@@ -1,6 +1,6 @@
 import express from 'express';
 
-import authUser from '../middleware/auth.js';
+import { authUser } from '../middleware/auth.js';
 import {
   addToCollection,
   createCollection,

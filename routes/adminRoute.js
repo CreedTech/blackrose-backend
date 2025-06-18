@@ -21,9 +21,10 @@ import {
   updateImage,
   updateUser,
   updateUserRole,
+  updateUserRoleStatus,
 } from '../controllers/adminController.js';
-import { adminOnly } from '../middleware/adminAuth.js';
-import authUser from '../middleware/auth.js';
+// import { adminOnly } from '../middleware/adminAuth.js';
+// import authUser from '../middleware/auth.js';
 import {
   getEcommerceOverview,
   getOrders,
@@ -47,6 +48,15 @@ import {
   updateCategory,
   updateCategoryFilters,
 } from '../controllers/categoryController.js';
+import {
+  adminAuth,
+  authUser,
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  superAdminAuth,
+} from '../middleware/auth.js';
+import userModel from '../models/userModel.js';
 
 const adminRouter = express.Router();
 
@@ -94,123 +104,336 @@ const variantUpload = upload.fields([
   { name: 'variantImage3', maxCount: 1 },
 ]);
 
-adminRouter.get('/metrics/users', authUser, adminOnly, getUserMetrics);
-adminRouter.get('/metrics/range', authUser, adminOnly, getMetricsByRange);
+adminRouter.get(
+  '/metrics/users',
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  getUserMetrics
+);
+adminRouter.get(
+  '/metrics/range',
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  getMetricsByRange
+);
 adminRouter.get(
   '/metrics/custom',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
   getMetricsByCustomRange
 );
-adminRouter.get('/metrics/export', authUser, adminOnly, exportMetrics);
-adminRouter.get('/stats', authUser, adminOnly, getDashboardStats);
-adminRouter.get('/analytics', authUser, adminOnly, getAnalytics);
-adminRouter.get('/get-users', authUser, adminOnly, getUsers);
-adminRouter.patch('/updateRole/:id', authUser, adminOnly, updateUserRole);
+adminRouter.get(
+  '/metrics/export',
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  exportMetrics
+);
+adminRouter.get(
+  '/stats',
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  getDashboardStats
+);
+adminRouter.get(
+  '/analytics',
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
+  getAnalytics
+);
+adminRouter.get('/get-users', adminAuth, getUsers);
+adminRouter.patch('/updateRole/:id', superAdminAuth, updateUserRole);
 
 // E-commerce Metrics Routes
 adminRouter.get(
   '/ecommerce/overview',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
+  requirePhotoGrapherAccess,
+  requireWriterAccess,
   getEcommerceOverview
 );
-adminRouter.get('/ecommerce/orders', authUser, adminOnly, getOrders);
+adminRouter.get(
+  '/ecommerce/orders',
+  requireMarketerAccess,
+  getOrders
+);
 adminRouter.put(
   '/ecommerce/orders/:orderId',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   updateOrderStatus
 );
 adminRouter.get(
   '/ecommerce/product-metrics',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   getProductMetrics
 );
 
 // Products Management Routes
-adminRouter.post('/products', authUser, adminOnly, productUpload, addProduct);
+adminRouter.post('/products', requireMarketerAccess, productUpload, addProduct);
 adminRouter.put(
   '/products/:productId',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   productUpload,
   updateProduct
 );
-adminRouter.get('/products', authUser, adminOnly, listProducts);
-adminRouter.delete('/products/:id', authUser, adminOnly, removeProduct);
+adminRouter.get('/products', requireMarketerAccess, listProducts);
+adminRouter.delete('/products/:id', requireMarketerAccess, removeProduct);
 
 // routes/adminRoutes.js
-adminRouter.get('/photo-stats', authUser, adminOnly, getPhotoStats);
+adminRouter.get('/photo-stats', requirePhotoGrapherAccess, getPhotoStats);
 
 // User management
-adminRouter.get('/users', authUser, adminOnly, getUsers);
-adminRouter.get('/users/:id', authUser, adminOnly, getUserDetails);
-adminRouter.put('/users/:id', authUser, adminOnly, updateUser);
-adminRouter.delete('/users/:id', authUser, adminOnly, deleteUser);
-adminRouter.put('/users/:id/role', authUser, adminOnly, updateUserRole);
+adminRouter.get('/users', adminAuth, getUsers);
+adminRouter.get('/users/:id', adminAuth, getUserDetails);
+adminRouter.put('/users/:id', adminAuth, updateUser);
+adminRouter.delete('/users/:id', adminAuth, deleteUser);
+adminRouter.put('/users/:userId/role', superAdminAuth, updateUserRoleStatus);
 
 // Image management
-adminRouter.get('/images', authUser, adminOnly, getImages);
-adminRouter.get('/images/:id', authUser, adminOnly, getImageDetails);
-adminRouter.put('/images/:id', authUser, adminOnly, updateImage);
-adminRouter.delete('/images/:id', authUser, adminOnly, deleteImage);
-adminRouter.put('/images/:id/feature', authUser, adminOnly, toggleFeatureImage);
+adminRouter.get('/images', requirePhotoGrapherAccess, getImages);
+adminRouter.get('/images/:id', requirePhotoGrapherAccess, getImageDetails);
+adminRouter.put('/images/:id', requirePhotoGrapherAccess, updateImage);
+adminRouter.delete('/images/:id', requirePhotoGrapherAccess, deleteImage);
+adminRouter.put(
+  '/images/:id/feature',
+  requirePhotoGrapherAccess,
+  toggleFeatureImage
+);
 
 // Category management
-adminRouter.get('/categories', authUser, adminOnly, getCategories);
-adminRouter.post('/categories', authUser, adminOnly, createCategory);
-adminRouter.put('/categories/:id', authUser, adminOnly, updateCategory);
-adminRouter.delete('/categories/:id', authUser, adminOnly, deleteCategory);
+adminRouter.get('/categories', requireMarketerAccess, getCategories);
+adminRouter.post('/categories', requireMarketerAccess, createCategory);
+adminRouter.put('/categories/:id', requireMarketerAccess, updateCategory);
+adminRouter.delete('/categories/:id', requireMarketerAccess, deleteCategory);
 
 adminRouter.post(
   '/products/:productId/variants',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   productUpload,
   addProductVariant
 );
 
 adminRouter.put(
   '/products/:productId/variants/:variantId/stock',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   updateVariantStock
 );
 
 adminRouter.get(
   '/products/:productId/inventory',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   getInventoryStatus
 );
 
 // Admin Category Management (additional)
 adminRouter.get(
   '/categories/statistics',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   getCategoryStatistics
 );
 
 adminRouter.get(
   '/categories/:categoryId/report',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   generateCategoryReport
 );
 
 adminRouter.put(
   '/categories/:categoryId/filters',
-  authUser,
-  adminOnly,
+  requireMarketerAccess,
   updateCategoryFilters
 );
 
 // Admin Order Management
-adminRouter.get('/orders/refund-requests', authUser, adminOnly, (req, res) => {
+adminRouter.get('/orders/refund-requests', superAdminAuth, (req, res) => {
   // This can be implemented in your orderController
   res.status(501).json({ message: 'Not implemented yet' });
+});
+
+adminRouter.get('/users', adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, role, search } = req.query;
+
+    let query = {};
+
+    // Filter by role if specified
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    // Search by name or email
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const users = await userModel
+      .find(query)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const totalUsers = await userModel.countDocuments(query);
+
+    // Get role statistics
+    const roleStats = await userModel.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.json({
+      success: true,
+      users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalUsers,
+        pages: Math.ceil(totalUsers / limit),
+      },
+      roleStats,
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.json({ success: false, message: 'Error fetching users' });
+  }
+});
+
+// Update user role
+// adminRouter.put('/users/:userId/role', superAdminAuth, async (req, res) => {
+//   console.log('updating');
+//   try {
+//     const { userId } = req.params;
+//     const { newRole, reason } = req.body;
+//     const adminUserId = req.body.userId; // The admin making the change
+
+//     // Validate new role
+//     const validRoles = ['user', 'admin', 'super-admin', 'photographer', 'marketer', 'writer'];
+//     if (!validRoles.includes(newRole)) {
+//       return res.json({ success: false, message: 'Invalid role specified' });
+//     }
+
+//     // Find the user to update
+//     const user = await userModel.findById(userId);
+//     if (!user) {
+//       return res.json({ success: false, message: 'User not found' });
+//     }
+
+//     // Prevent changing super-admin role unless you're a super-admin
+//     const adminUser = await userModel.findById(adminUserId);
+//     if (user.role === 'super-admin' && adminUser.role !== 'super-admin') {
+//       return res.json({
+//         success: false,
+//         message: 'Only super-admins can modify super-admin roles'
+//       });
+//     }
+
+//     // Update the role
+//     await user.updateRole(newRole, adminUserId, reason);
+
+//     res.json({
+//       success: true,
+//       message: `User role updated to ${newRole}`,
+//       user: {
+//         id: user._id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         permissions: user.permissions
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Update user role error:', error);
+//     res.json({ success: false, message: 'Error updating user role' });
+//   }
+// });
+
+// Get user role history
+adminRouter.get('/users/:userId/role-history', adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await userModel
+      .findById(userId)
+      .populate('roleHistory.changedBy', 'name email')
+      .select('name email role roleHistory');
+
+    if (!user) {
+      return res.json({ success: false, message: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        name: user.name,
+        email: user.email,
+        currentRole: user.role,
+        roleHistory: user.roleHistory,
+      },
+    });
+  } catch (error) {
+    console.error('Get role history error:', error);
+    res.json({ success: false, message: 'Error fetching role history' });
+  }
+});
+
+// Bulk role update
+adminRouter.put('/users/bulk-role-update', superAdminAuth, async (req, res) => {
+  try {
+    const { userIds, newRole, reason } = req.body;
+    const adminUserId = req.body.userId;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.json({ success: false, message: 'No users selected' });
+    }
+
+    const validRoles = [
+      'user',
+      'admin',
+      'super-admin',
+      'photographer',
+      'marketer',
+      'writer',
+    ];
+    if (!validRoles.includes(newRole)) {
+      return res.json({ success: false, message: 'Invalid role specified' });
+    }
+
+    const updatedUsers = [];
+
+    for (const userId of userIds) {
+      try {
+        const user = await userModel.findById(userId);
+        if (user) {
+          await user.updateRole(newRole, adminUserId, reason);
+          updatedUsers.push({
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            newRole: user.role,
+          });
+        }
+      } catch (error) {
+        console.error(`Error updating user ${userId}:`, error);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Updated ${updatedUsers.length} users to ${newRole}`,
+      updatedUsers,
+    });
+  } catch (error) {
+    console.error('Bulk role update error:', error);
+    res.json({ success: false, message: 'Error updating user roles' });
+  }
 });
 export default adminRouter;

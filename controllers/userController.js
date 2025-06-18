@@ -114,7 +114,7 @@ const loginUser = async (req, res) => {
   console.log('Request body:', req.body);
   try {
     const { email, password } = req.body;
-    const isAdmin = req.body.isAdmin === true;
+    // const isAdmin = req.body.isAdmin === true;
 
     const user = await userModel.findOne({ email });
 
@@ -128,12 +128,12 @@ const loginUser = async (req, res) => {
       return res.json({ success: false, message: 'Invalid credentials' });
     }
 
-    if (isAdmin && !user.isAdmin) {
-      return res.json({
-        success: false,
-        message: 'You do not have administrator privileges',
-      });
-    }
+    // if (isAdmin && !user.isAdmin) {
+    //   return res.json({
+    //     success: false,
+    //     message: 'You do not have administrator privileges',
+    //   });
+    // }
 
     const token = createToken(user._id);
 
@@ -142,21 +142,13 @@ const loginUser = async (req, res) => {
       action: 'login',
       ip: req.ip,
       userAgent: req.headers['user-agent'],
-      loginType: isAdmin ? 'admin' : 'user',
+      loginType: 'user',
     });
 
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        isAdmin: user.isAdmin,
-        totalViews: user.totalViews,
-        totalLikes: user.totalLikes,
-        preferences: user.preferences,
-      },
+      user,
     });
   } catch (error) {
     console.log(error);
@@ -293,14 +285,10 @@ const addToCart = async (req, res) => {
 
       availableStock = variant.stock;
 
-      // For variants: check backorderAllowed OR allow preorder if user explicitly requests it
       allowPreorder = variant.inventory?.backorderAllowed || isPreorder;
     } else {
       // Check main product stock
       availableStock = product.stock;
-
-      // For main product: allow preorder if user explicitly requests it
-      // OR if the product is specifically set up for preorder/made to order
       allowPreorder =
         isPreorder ||
         product.availabilityType === 'Pre-order' ||
@@ -1293,7 +1281,7 @@ export const forgotPassword = async (req, res) => {
     }
 
     // Generate secure reset token
-    const resetToken =crypto.randomBytes(32).toString('hex');
+    const resetToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
