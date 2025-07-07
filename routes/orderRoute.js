@@ -1,18 +1,4 @@
-// import express from 'express';
-// import adminAuth from '../middleware/adminAuth.js';
-// import authUser from '../middleware/auth.js';
-// import {
-//   createOrder,
-//   getMyOrders,
-// //   getOrderById,
-// } from '../controllers/orderController.js';
 
-// const orderRouter = express.Router();
-
-// orderRouter.post('/create', authUser, createOrder);
-// orderRouter.get('/my-orders', authUser, getMyOrders);
-
-// export default orderRouter;
 
 import express from 'express';
 import { authUser, requireMarketerAccess } from '../middleware/auth.js';

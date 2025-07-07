@@ -18,7 +18,7 @@ import ExcelJS from 'exceljs';
 import LoginActivity from '../models/loginActivityModel.js';
 import Collection from '../models/collectionModel.js';
 
-// Helper function to get date range
+
 const getDateRangeFromType = (type) => {
   const end = new Date();
   let start;
@@ -40,7 +40,7 @@ const getDateRangeFromType = (type) => {
   return { start, end };
 };
 
-// Get metrics by date range type
+
 const getMetricsByRange = async (req, res) => {
   try {
     const { range = 'week' } = req.query;
@@ -53,7 +53,7 @@ const getMetricsByRange = async (req, res) => {
   }
 };
 
-// Get metrics by custom date range
+
 const getMetricsByCustomRange = async (req, res) => {
   try {
     const { start, end } = req.query;
@@ -74,7 +74,7 @@ const getMetricsByCustomRange = async (req, res) => {
   }
 };
 
-// Helper function to calculate metrics
+
 const calculateMetrics = async (start, end) => {
   // Get previous period for comparison
   const periodLength = end.getTime() - start.getTime();
@@ -214,18 +214,18 @@ const calculateMetrics = async (start, end) => {
   };
 };
 
-// Export metrics
+
 const exportMetrics = async (req, res) => {
   try {
     const { format = 'csv', start, end } = req.query;
 
-    // Get metrics data
+
     const metrics = await calculateMetrics(
       start ? parseISO(start) : subWeeks(new Date(), 1),
       end ? parseISO(end) : new Date()
     );
 
-    // Prepare data for export
+
     const exportData = {
       overview: {
         'Total Users': metrics.overview.totalUsers,
@@ -245,7 +245,7 @@ const exportMetrics = async (req, res) => {
       })),
     };
 
-    // Handle different export formats
+  
     switch (format.toLowerCase()) {
       case 'csv': {
         const parser = new Parser();
@@ -263,7 +263,7 @@ const exportMetrics = async (req, res) => {
       case 'excel': {
         const workbook = new ExcelJS.Workbook();
 
-        // Overview sheet
+   
         const overviewSheet = workbook.addWorksheet('Overview');
         overviewSheet.columns = [
           { header: 'Metric', key: 'metric' },
@@ -273,7 +273,7 @@ const exportMetrics = async (req, res) => {
           overviewSheet.addRow({ metric, value });
         });
 
-        // Daily Active Users sheet
+       
         const dauSheet = workbook.addWorksheet('Daily Active Users');
         dauSheet.columns = [
           { header: 'Date', key: 'date' },
@@ -283,7 +283,7 @@ const exportMetrics = async (req, res) => {
           dauSheet.addRow(day);
         });
 
-        // Activity by Day sheet
+     
         const activitySheet = workbook.addWorksheet('Activity by Day');
         activitySheet.columns = [
           { header: 'Day', key: 'day' },

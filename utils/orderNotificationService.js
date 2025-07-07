@@ -1,4 +1,4 @@
-// services/orderNotificationService.js
+
 import {
   sendOrderStatusUpdate,
   sendShippingNotification,

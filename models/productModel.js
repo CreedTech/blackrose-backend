@@ -622,7 +622,7 @@ productSchema.statics.findByFilters = function (filters) {
 
   return this.find(query);
 };
-// Add to the Product model
+
 productSchema.methods.updateVariantStock = async function (
   variantId,
   quantityChange
@@ -632,18 +632,18 @@ productSchema.methods.updateVariantStock = async function (
     throw new Error('Variant not found');
   }
 
-  // Update the stock
+
   variant.stock += quantityChange;
 
-  // If we have inventory management fields
+
   if (variant.inventory && variant.inventory.managed) {
     variant.inventory.availableQuantity += quantityChange;
 
-    // Check if we need to update any alerts
+
     if (
       variant.inventory.availableQuantity <= variant.inventory.lowStockThreshold
     ) {
-      // You could trigger alerts or notifications here
+
       console.log(`Low stock alert for variant ${variantId}`);
     }
   }
@@ -689,8 +689,7 @@ productSchema.methods.getRelatedProducts = async function (limit = 4) {
 
 // Get complementary products (often bought together)
 productSchema.methods.getComplementaryProducts = async function (limit = 4) {
-  // You can implement this based on order history or product relationships
-  // For now, a simple implementation might be products from related categories
+
   const Category = mongoose.model('Category');
   const currentCategory = await Category.findById(this.category);
 

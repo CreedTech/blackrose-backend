@@ -1,109 +1,4 @@
-// import Category from '../models/categoryModel.js';
-// import { v2 as cloudinary } from 'cloudinary';
 
-// const getCategories = async (req, res) => {
-//   try {
-//     const categories = await Category.find({ active: true }).sort({
-//       order: 1,
-//       title: 1,
-//     });
-//     res.json(categories);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// const getCategoryBySlug = async (req, res) => {
-//   try {
-//     const category = await Category.findOne({
-//       slug: req.params.slug,
-//       active: true,
-//     });
-
-//     if (!category) {
-//       return res.status(404).json({ message: 'Category not found' });
-//     }
-
-//     res.json(category);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// const createCategory = async (req, res) => {
-//   try {
-//     let imageUrl = await cloudinary.uploader.upload(req.body.image, {
-//       folder: 'categories',
-//       resource_type: 'image',
-//       allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
-//     });
-//     const category = new Category({
-//       title: req.body.title,
-//       description: req.body.description,
-//       image: imageUrl.url,
-//       order: req.body.order,
-//     });
-
-//     const newCategory = await category.save();
-//     res.status(201).json(newCategory);
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// };
-
-// const updateCategory = async (req, res) => {
-//   try {
-//     const category = await Category.findById(req.params.id);
-//     if (!category) {
-//       return res.status(404).json({ message: 'Category not found' });
-//     }
-
-//     Object.keys(req.body).forEach((key) => {
-//       if (req.body[key] !== undefined) {
-//         category[key] = req.body[key];
-//       }
-//     });
-
-//     const updatedCategory = await category.save();
-//     res.json(updatedCategory);
-//   } catch (error) {
-//     res.status(400).json({ message: error.message });
-//   }
-// };
-
-// // Delete category (soft delete)
-// const deleteCategory = async (req, res) => {
-//   try {
-//     console.log('Deleting category with ID:', req.params.id);
-
-//     // Use findByIdAndDelete to directly remove the document
-//     const deletedCategory = await Category.findByIdAndDelete(req.params.id);
-
-//     if (!deletedCategory) {
-//       return res.status(404).json({ message: 'Category not found' });
-//     }
-
-//     res.json({
-//       message: 'Category deleted successfully',
-//       deletedCategory: {
-//         name: deletedCategory.name,
-//         id: deletedCategory._id,
-//       },
-//     });
-//   } catch (error) {
-//     console.error('Error deleting category:', error);
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// export {
-//   getCategories,
-//   getCategoryBySlug,
-//   createCategory,
-//   updateCategory,
-//   deleteCategory,
-// };
 
 import Category from '../models/categoryModel.js';
 import { v2 as cloudinary } from 'cloudinary';
@@ -152,32 +47,7 @@ const getCategories = async (req, res) => {
   }
 };
 
-// const getCategoryBySlug = async (req, res) => {
-//   try {
-//     const category = await Category.findOne({
-//       slug: req.params.slug,
-//       active: true,
-//     }).populate('parentCategory', 'title slug');
 
-//     if (!category) {
-//       return res.status(404).json({ message: 'Category not found' });
-//     }
-
-//     // Get subcategories
-//     const subcategories = await category.getSubcategories();
-
-//     // Get category path for breadcrumbs
-//     const categoryPath = await category.getCategoryPath();
-
-//     res.json({
-//       ...category.toObject(),
-//       subcategories,
-//       categoryPath,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
 
 const getCategoryBySlug = async (req, res) => {
   try {
@@ -192,22 +62,22 @@ const getCategoryBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    // Get subcategories
+   
     const subcategories = await category.getSubcategories();
 
-    // Get category path for breadcrumbs
+
     const categoryPath = await category.getCategoryPath();
 
-    // Get available filters for this category
+
     const availableFilters = await getAvailableFiltersForCategory(category._id);
 
-    // Get featured products from this category (limit to 4)
+
     const featuredProducts = await getFeaturedProductsFromCategory(
       category._id,
       4
     );
 
-    // Count total products in this category (including subcategories)
+ 
     const totalProducts = await countProductsInCategory(category._id);
 
     res.json({
@@ -647,24 +517,23 @@ async function getAvailableFiltersForCategory(categoryId) {
       isActive: true,
     });
 
-    // Initialize filters object
+
     const filters = {};
 
-    // Only include filters that are allowed for this category
+  
     const allowedFilters = category.availableFilters || [];
 
-    // Process colors if allowed
+
     if (allowedFilters.includes('color')) {
       const colors = new Set();
 
-      // Collect colors from main products
+    
       products.forEach((product) => {
         if (product.color && product.color.length) {
           product.color.forEach((c) => colors.add(c));
         }
       });
 
-      // Collect colors from variants
       products.forEach((product) => {
         if (product.variants && product.variants.length) {
           product.variants.forEach((variant) => {
@@ -680,18 +549,18 @@ async function getAvailableFiltersForCategory(categoryId) {
       }
     }
 
-    // Process sizes if allowed
+
     if (allowedFilters.includes('size')) {
       const sizes = new Set();
 
-      // Collect sizes from main products
+  
       products.forEach((product) => {
         if (product.size) {
           sizes.add(product.size);
         }
       });
 
-      // Collect sizes from variants
+   
       products.forEach((product) => {
         if (product.variants && product.variants.length) {
           product.variants.forEach((variant) => {
@@ -707,7 +576,7 @@ async function getAvailableFiltersForCategory(categoryId) {
       }
     }
 
-    // Process materials if allowed
+
     if (allowedFilters.includes('material')) {
       const materials = new Set();
 
@@ -718,7 +587,7 @@ async function getAvailableFiltersForCategory(categoryId) {
         }
       });
 
-      // Collect materials from variants
+
       products.forEach((product) => {
         if (product.variants && product.variants.length) {
           product.variants.forEach((variant) => {
@@ -734,18 +603,18 @@ async function getAvailableFiltersForCategory(categoryId) {
       }
     }
 
-    // Process finishes if allowed
+
     if (allowedFilters.includes('finish')) {
       const finishes = new Set();
 
-      // Collect finishes from main products
+  
       products.forEach((product) => {
         if (product.finish) {
           finishes.add(product.finish);
         }
       });
 
-      // Collect finishes from variants
+ 
       products.forEach((product) => {
         if (product.variants && product.variants.length) {
           product.variants.forEach((variant) => {
@@ -761,7 +630,7 @@ async function getAvailableFiltersForCategory(categoryId) {
       }
     }
 
-    // Process brands if allowed
+
     if (allowedFilters.includes('brand')) {
       const brands = new Set();
 
@@ -776,7 +645,7 @@ async function getAvailableFiltersForCategory(categoryId) {
       }
     }
 
-    // Process features if allowed
+
     if (allowedFilters.includes('features')) {
       const features = new Set();
 

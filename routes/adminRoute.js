@@ -23,8 +23,6 @@ import {
   updateUserRole,
   updateUserRoleStatus,
 } from '../controllers/adminController.js';
-// import { adminOnly } from '../middleware/adminAuth.js';
-// import authUser from '../middleware/auth.js';
 import {
   getEcommerceOverview,
   getOrders,
@@ -89,14 +87,7 @@ const upload = multer({
   },
 });
 
-// Product upload middleware setup
-// const productUpload = upload.fields([
-//   { name: 'image1', maxCount: 1 },
-//   { name: 'image2', maxCount: 1 },
-//   { name: 'image3', maxCount: 1 },
-//   { name: 'image4', maxCount: 1 },
-//   { name: 'image5', maxCount: 1 },
-// ]);
+
 const productUpload = upload.any();
 const variantUpload = upload.fields([
   { name: 'variantImage1', maxCount: 1 },
@@ -306,55 +297,6 @@ adminRouter.get('/users', adminAuth, async (req, res) => {
   }
 });
 
-// Update user role
-// adminRouter.put('/users/:userId/role', superAdminAuth, async (req, res) => {
-//   console.log('updating');
-//   try {
-//     const { userId } = req.params;
-//     const { newRole, reason } = req.body;
-//     const adminUserId = req.body.userId; // The admin making the change
-
-//     // Validate new role
-//     const validRoles = ['user', 'admin', 'super-admin', 'photographer', 'marketer', 'writer'];
-//     if (!validRoles.includes(newRole)) {
-//       return res.json({ success: false, message: 'Invalid role specified' });
-//     }
-
-//     // Find the user to update
-//     const user = await userModel.findById(userId);
-//     if (!user) {
-//       return res.json({ success: false, message: 'User not found' });
-//     }
-
-//     // Prevent changing super-admin role unless you're a super-admin
-//     const adminUser = await userModel.findById(adminUserId);
-//     if (user.role === 'super-admin' && adminUser.role !== 'super-admin') {
-//       return res.json({
-//         success: false,
-//         message: 'Only super-admins can modify super-admin roles'
-//       });
-//     }
-
-//     // Update the role
-//     await user.updateRole(newRole, adminUserId, reason);
-
-//     res.json({
-//       success: true,
-//       message: `User role updated to ${newRole}`,
-//       user: {
-//         id: user._id,
-//         name: user.name,
-//         email: user.email,
-//         role: user.role,
-//         permissions: user.permissions
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Update user role error:', error);
-//     res.json({ success: false, message: 'Error updating user role' });
-//   }
-// });
 
 // Get user role history
 adminRouter.get('/users/:userId/role-history', adminAuth, async (req, res) => {
